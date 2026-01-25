@@ -1,0 +1,7 @@
+{
+  "name": "WanderLog - Personal Travel Tracker",
+  "description": "A comprehensive travel tracking application that logs visited states and countries, manages ratings and experiences, and provides AI-powered recommendations for future trips.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
