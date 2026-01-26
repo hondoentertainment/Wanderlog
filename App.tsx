@@ -14,11 +14,13 @@ import { Timeline } from './components/Timeline';
 import { TravelMuse } from './components/TravelMuse';
 import { SquadHub } from './components/SquadHub';
 import { BucketList } from './components/BucketList';
-import { ToastContainer, useToast } from './components/Toast';
+import { useToast } from './components/Toast';
 import { MobileNav } from './components/MobileNav';
 import { TravelMilestones } from './components/TravelMilestones';
 import { TripComparison } from './components/TripComparison';
 import { StatsCard } from './components/StatsCard';
+import { useAuth } from './contexts/AuthContext';
+import { Login } from './components/Login';
 
 const App: React.FC = () => {
   const [locations, setLocations] = useState<TravelLocation[]>([]);
@@ -44,7 +46,13 @@ const App: React.FC = () => {
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
 
-  const { toasts, showToast, removeToast } = useToast();
+  // Auth State
+  const { user, loading: authLoading } = useAuth();
+  const { showToast } = useToast();
+
+  // Redirect to login if not authenticated
+  if (authLoading) return null;
+  if (!user) return <Login />;
 
   useEffect(() => {
     const { locations: savedLocs, profile: savedProfile, savedRecommendations: savedRecs, squadTrips: savedSquads } = loadAppData();
@@ -306,11 +314,15 @@ const App: React.FC = () => {
               className={`flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#2c3440] transition-all group ${currentView === 'profile' ? 'bg-[#2c3440]' : ''}`}
             >
               <div className="hidden sm:block text-right">
-                <span className="block text-[10px] font-black text-white uppercase tracking-tighter leading-none">{profile.name}</span>
+                <span className="block text-[10px] font-black text-white uppercase tracking-tighter leading-none">{user.displayName || profile.name}</span>
                 <span className="block text-[8px] font-bold text-[#567] uppercase tracking-widest mt-0.5 group-hover:text-[#9ab] transition-colors">View Profile</span>
               </div>
-              <div className="w-8 h-8 rounded border border-[#456] bg-[#2c3440] flex items-center justify-center text-[11px] font-black text-white overflow-hidden group-hover:border-[#00e054] transition-all">
-                {profile.name.charAt(0)}
+              <div className="w-8 h-8 rounded-full border border-[#456] bg-[#2c3440] flex items-center justify-center text-[11px] font-black text-white overflow-hidden group-hover:border-[#00e054] transition-all relative">
+                {user.photoURL ? (
+                  <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  (user.displayName || profile.name).charAt(0)
+                )}
               </div>
             </button>
           </div>
@@ -480,9 +492,6 @@ const App: React.FC = () => {
 
       {/* Mobile Bottom Navigation */}
       <MobileNav currentView={currentView} onNavigate={(v) => setCurrentView(v as any)} />
-
-      {/* Toast Notifications */}
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };
