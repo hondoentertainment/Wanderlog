@@ -379,7 +379,10 @@ const App: React.FC = () => {
             <TravelMilestones locations={locations} />
 
             <section className="bg-[#1b2228] p-6 rounded border border-[#2c3440]">
-              <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">Proactive Muse Insights</h3>
+              <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">
+                <i className="fas fa-robot text-[#00e054] mr-2"></i>
+                Jules · AI Travel Companion
+              </h3>
               <TravelMuse insights={museInsights} isLoading={isLoadingMuse} onRefresh={handleRefreshMuse} />
             </section>
 

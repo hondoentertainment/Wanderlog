@@ -14,15 +14,15 @@ export const TravelMuse: React.FC<TravelMuseProps> = ({ insights, isLoading, onR
       <div className="flex items-center justify-between border-b border-[#2c3440] pb-2">
         <div className="flex items-center gap-2">
           <i className="fas fa-sparkles text-[#00e054] text-xs"></i>
-          <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest">Travel Muse</h2>
+          <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest">Jules</h2>
         </div>
-        <button 
-          onClick={onRefresh} 
+        <button
+          onClick={onRefresh}
           disabled={isLoading}
           className="text-[9px] font-black uppercase text-[#00e054] hover:text-white transition-colors disabled:opacity-20 flex items-center gap-2"
         >
           {isLoading ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fas fa-brain"></i>}
-          ANALYZE PATTERNS
+          ASK JULES
         </button>
       </div>
 
@@ -37,17 +37,15 @@ export const TravelMuse: React.FC<TravelMuseProps> = ({ insights, isLoading, onR
           ))
         ) : insights.length > 0 ? (
           insights.map((insight) => (
-            <div 
-              key={insight.id} 
-              className={`bg-[#1b2228] p-6 rounded border transition-all hover:bg-[#202830] flex flex-col justify-between h-full ${
-                insight.type === 'gem' ? 'border-[#ff8000]/30 border-l-4 border-l-[#ff8000]' : 'border-[#2c3440]'
-              }`}
+            <div
+              key={insight.id}
+              className={`bg-[#1b2228] p-6 rounded border transition-all hover:bg-[#202830] flex flex-col justify-between h-full ${insight.type === 'gem' ? 'border-[#ff8000]/30 border-l-4 border-l-[#ff8000]' : 'border-[#2c3440]'
+                }`}
             >
               <div>
                 <div className="flex justify-between items-start mb-3">
-                  <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-sm ${
-                    insight.type === 'gem' ? 'bg-[#ff8000]/20 text-[#ff8000]' : 'bg-[#40bcf4]/20 text-[#40bcf4]'
-                  }`}>
+                  <span className={`text-[8px] font-black uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-sm ${insight.type === 'gem' ? 'bg-[#ff8000]/20 text-[#ff8000]' : 'bg-[#40bcf4]/20 text-[#40bcf4]'
+                    }`}>
                     {insight.type === 'gem' ? 'Hidden Gem' : 'Pattern Found'}
                   </span>
                   <span className="text-[9px] font-black text-[#567]">{insight.relevanceScore}% match</span>
@@ -71,9 +69,9 @@ export const TravelMuse: React.FC<TravelMuseProps> = ({ insights, isLoading, onR
           ))
         ) : (
           <div className="col-span-full py-12 flex flex-col items-center justify-center border border-dashed border-[#2c3440] rounded opacity-30 text-center">
-            <i className="fas fa-lightbulb text-2xl mb-3"></i>
+            <i className="fas fa-robot text-2xl mb-3"></i>
             <p className="text-[10px] font-black uppercase tracking-widest px-8">
-              The Muse is quiet. Log more trips to discover hidden patterns in your travel style.
+              Jules is waiting. Log more trips to let Jules discover hidden patterns in your travel style.
             </p>
           </div>
         )}
