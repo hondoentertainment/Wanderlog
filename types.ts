@@ -6,6 +6,8 @@ export enum LocationType {
 
 export type VibeType = 'adventurous' | 'tired' | 'cultural' | 'foodie' | 'nature-loving';
 
+export type CompanionType = 'solo' | 'partner' | 'family' | 'friends' | 'group';
+
 export interface GroundingLink {
   title: string;
   uri: string;
@@ -19,6 +21,8 @@ export interface TravelLocation {
   likes: string[];
   dislikes: string[];
   dateVisited: string;
+  dateEndVisited?: string; // Optional end date for trip duration
+  companions?: CompanionType[]; // Who you traveled with
   coordinates?: { lat: number; lng: number; zoom?: number };
 }
 

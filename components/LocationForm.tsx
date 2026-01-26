@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LocationType, TravelLocation } from '../types';
+import { LocationType, TravelLocation, CompanionType } from '../types';
 import { US_STATES, COMMON_COUNTRIES } from '../constants';
 import { Button } from './Button';
 import { StarRating } from './StarRating';
@@ -19,6 +19,8 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const [dislikeInput, setDislikeInput] = useState('');
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState('');
+  const [companions, setCompanions] = useState<CompanionType[]>([]);
   const [isScanning, setIsScanning] = useState(false);
 
   // Autocomplete state
@@ -31,7 +33,7 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   useEffect(() => {
     const list = type === LocationType.STATE ? US_STATES : COMMON_COUNTRIES;
     if (name.trim().length > 0) {
-      const filtered = list.filter(item => 
+      const filtered = list.filter(item =>
         item.toLowerCase().includes(name.toLowerCase())
       ).slice(0, 8);
       setSuggestions(filtered);
@@ -118,11 +120,22 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onAdd({ name, type, rating, likes, dislikes, dateVisited: date });
+    onAdd({
+      name,
+      type,
+      rating,
+      likes,
+      dislikes,
+      dateVisited: date,
+      dateEndVisited: endDate || undefined,
+      companions: companions.length > 0 ? companions : undefined
+    });
     setName('');
     setLikes([]);
     setDislikes([]);
     setRating(4);
+    setEndDate('');
+    setCompanions([]);
     setShowSuggestions(false);
   };
 
@@ -134,10 +147,10 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
           <span className="text-[10px] font-black uppercase tracking-widest text-[#9ab]">AI-Assisted Pre-fill</span>
         </div>
         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleScanPhoto} />
-        <Button 
-          type="button" 
-          variant="ghost" 
-          className="!text-[9px]" 
+        <Button
+          type="button"
+          variant="ghost"
+          className="!text-[9px]"
           onClick={() => fileInputRef.current?.click()}
           isLoading={isScanning}
         >
@@ -150,8 +163,8 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Location Name</label>
           <div className="relative group">
             <i className={`fas fa-search absolute left-3.5 top-1/2 -translate-y-1/2 text-xs transition-colors ${showSuggestions ? 'text-[#00e054]' : 'text-[#567]'}`}></i>
-            <input 
-              type="text" 
+            <input
+              type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -173,9 +186,8 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
                     type="button"
                     onClick={() => selectSuggestion(item)}
                     onMouseEnter={() => setHighlightedIndex(idx)}
-                    className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-all flex items-center justify-between group ${
-                      idx === highlightedIndex ? 'bg-[#343d4b] text-[#00e054]' : 'text-[#def] hover:bg-[#202830]'
-                    }`}
+                    className={`w-full text-left px-4 py-2.5 text-xs font-bold transition-all flex items-center justify-between group ${idx === highlightedIndex ? 'bg-[#343d4b] text-[#00e054]' : 'text-[#def] hover:bg-[#202830]'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <i className={`fas fa-location-dot text-[10px] ${idx === highlightedIndex ? 'opacity-100' : 'opacity-20'}`}></i>
@@ -214,8 +226,8 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest">Your Rating</label>
           <StarRating rating={rating} showNumber size="md" />
         </div>
-        <input 
-          type="range" min="0" max="5" step="0.5" 
+        <input
+          type="range" min="0" max="5" step="0.5"
           value={rating}
           onChange={(e) => setRating(parseFloat(e.target.value))}
           className="w-full h-1 bg-[#2c3440] rounded-lg appearance-none cursor-pointer accent-[#00e054]"
@@ -225,7 +237,7 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         <div className="space-y-3">
           <label className="text-[10px] font-black text-[#00e054] uppercase tracking-widest block">Highs</label>
-          <input 
+          <input
             type="text" value={likeInput}
             onChange={(e) => setLikeInput(e.target.value)}
             onKeyDown={handleAddLike}
@@ -244,7 +256,7 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
 
         <div className="space-y-3">
           <label className="text-[10px] font-black text-red-500 uppercase tracking-widest block">Lows</label>
-          <input 
+          <input
             type="text" value={dislikeInput}
             onChange={(e) => setDislikeInput(e.target.value)}
             onKeyDown={handleAddDislike}
@@ -262,15 +274,57 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
         </div>
       </div>
 
-      <div className="flex items-center justify-between pt-8 border-t border-[#2c3440]">
-        <div>
-          <label className="text-[9px] font-black text-[#567] uppercase tracking-widest block mb-1">Date Logged</label>
-          <input 
-            type="date" value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-[12px] text-white font-bold bg-transparent outline-none border-none cursor-pointer"
-          />
+      <div className="space-y-6 pt-6 border-t border-[#2c3440]">
+        {/* Date Range */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-[10px] font-bold text-[#567] uppercase tracking-wider block mb-2">Start Date</label>
+            <input
+              type="date" value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="w-full bg-[#2c3440] px-3 py-2 rounded-sm text-sm text-white outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-bold text-[#567] uppercase tracking-wider block mb-2">End Date <span className="text-[#456]">(optional)</span></label>
+            <input
+              type="date" value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              min={date}
+              className="w-full bg-[#2c3440] px-3 py-2 rounded-sm text-sm text-white outline-none"
+            />
+          </div>
         </div>
+
+        {/* Companion Tags */}
+        <div>
+          <label className="text-[10px] font-bold text-[#567] uppercase tracking-wider block mb-2">Who'd you travel with?</label>
+          <div className="flex flex-wrap gap-2">
+            {(['solo', 'partner', 'family', 'friends', 'group'] as CompanionType[]).map(comp => (
+              <button
+                key={comp}
+                type="button"
+                onClick={() => {
+                  if (companions.includes(comp)) {
+                    setCompanions(companions.filter(c => c !== comp));
+                  } else {
+                    setCompanions([...companions, comp]);
+                  }
+                }}
+                className={`px-3 py-1.5 rounded-sm text-xs font-bold uppercase transition-all ${companions.includes(comp)
+                    ? 'bg-[#00e054] text-[#14181c]'
+                    : 'bg-[#2c3440] text-[#9ab] hover:bg-[#3c4450]'
+                  }`}
+              >
+                <i className={`fas ${comp === 'solo' ? 'fa-user' : comp === 'partner' ? 'fa-heart' : comp === 'family' ? 'fa-users' : comp === 'friends' ? 'fa-user-group' : 'fa-people-group'} mr-1.5`}></i>
+                {comp}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end pt-6 border-t border-[#2c3440]">
         <Button type="submit" variant="primary" className="px-8 py-3">SAVE LOG</Button>
       </div>
     </form>

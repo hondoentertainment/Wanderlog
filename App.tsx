@@ -16,6 +16,7 @@ import { SquadHub } from './components/SquadHub';
 import { BucketList } from './components/BucketList';
 import { ToastContainer, useToast } from './components/Toast';
 import { MobileNav } from './components/MobileNav';
+import { TravelMilestones } from './components/TravelMilestones';
 
 const App: React.FC = () => {
   const [locations, setLocations] = useState<TravelLocation[]>([]);
@@ -366,8 +367,10 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'history' && (
-          <div className="space-y-12">
+          <div className="space-y-8">
             <Dashboard locations={locations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} isDNAlOading={loadingDNA} />
+
+            <TravelMilestones locations={locations} />
 
             <section className="bg-[#1b2228] p-6 rounded border border-[#2c3440]">
               <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">Proactive Muse Insights</h3>
@@ -412,17 +415,42 @@ const App: React.FC = () => {
 
               <div className="divide-y divide-[#2c3440]">
                 {filteredLocations.length > 0 ? filteredLocations.map((loc) => (
-                  <div key={loc.id} className="group flex items-center justify-between py-4 px-2 hover:bg-[#1b2228] transition-colors rounded">
-                    <div className="flex items-center gap-6">
-                      <div className="w-12 text-center text-[10px] font-black uppercase text-[#567]">{new Date(loc.dateVisited).getFullYear()}</div>
+                  <div key={loc.id} className="group flex items-center justify-between py-4 px-3 hover:bg-[#1b2228] transition-colors rounded-lg">
+                    <div className="flex items-center gap-5">
+                      <div className="w-16 text-center">
+                        <div className="text-[10px] font-bold text-[#567] uppercase">
+                          {new Date(loc.dateVisited).toLocaleDateString('en-US', { month: 'short' })}
+                        </div>
+                        <div className="text-lg font-black text-white">
+                          {new Date(loc.dateVisited).getFullYear()}
+                        </div>
+                        {loc.dateEndVisited && (
+                          <div className="text-[9px] font-bold text-[#00e054]">
+                            {Math.ceil((new Date(loc.dateEndVisited).getTime() - new Date(loc.dateVisited).getTime()) / (1000 * 60 * 60 * 24)) + 1} days
+                          </div>
+                        )}
+                      </div>
                       <div>
-                        <h3 className="text-white text-lg font-black tracking-tight leading-none group-hover:text-[#40bcf4] transition-colors cursor-pointer" onClick={() => handleViewMap(loc)}>{loc.name}</h3>
-                        <div className="flex items-center gap-3 mt-1"><StarRating rating={loc.rating} /><span className="text-[9px] font-black text-[#567] uppercase">{loc.type}</span></div>
+                        <h3 className="text-white text-lg font-bold tracking-tight leading-none group-hover:text-[#40bcf4] transition-colors cursor-pointer" onClick={() => handleViewMap(loc)}>{loc.name}</h3>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <StarRating rating={loc.rating} />
+                          <span className="text-[9px] font-bold text-[#567] uppercase">{loc.type}</span>
+                          {loc.companions && loc.companions.length > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              {loc.companions.map(c => (
+                                <span key={c} className="text-[9px] font-bold text-[#9ab] bg-[#2c3440] px-1.5 py-0.5 rounded">
+                                  <i className={`fas ${c === 'solo' ? 'fa-user' : c === 'partner' ? 'fa-heart' : c === 'family' ? 'fa-users' : c === 'friends' ? 'fa-user-group' : 'fa-people-group'} mr-1`}></i>
+                                  {c}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100">
-                      <button onClick={() => handleShareLocation(loc)} className="text-[#567] hover:text-[#00e054]"><i className="fas fa-share-alt"></i></button>
-                      <button onClick={() => handleDeleteLocation(loc.id)} className="text-[#567] hover:text-red-500"><i className="fas fa-trash-alt"></i></button>
+                    <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => handleShareLocation(loc)} className="text-[#567] hover:text-[#00e054] p-2"><i className="fas fa-share-alt"></i></button>
+                      <button onClick={() => handleDeleteLocation(loc.id)} className="text-[#567] hover:text-red-500 p-2"><i className="fas fa-trash-alt"></i></button>
                     </div>
                   </div>
                 )) : (
