@@ -1,60 +1,55 @@
-# PRD: WanderLog - Grounded AI Travel Journal (v1.1)
 
-**Version:** 1.1  
-**Status:** Implementation Complete / Maps Grounding Active  
+# PRD: WanderLog - Personal Travel Tracker (v1.4)
+
+**Version:** 1.4  
+**Status:** Feature Complete / Enhanced AI Utilities  
 **Author:** Senior Product Engineer  
 
 ## 1. Executive Summary
-WanderLog is an AI-powered travel journaling platform that bridges the gap between memory and discovery. By combining user-provided sentiment (likes/dislikes) with real-world geographic data via **Google Maps Grounding**, the app provides actionable, verified recommendations. Users don't just get a name; they get a direct path to their next destination.
+WanderLog is a high-end, AI-powered travel journaling platform designed for modern explorers. It provides a sleek, dark-mode interface to document memories, track global progress through a dedicated analytics dashboard, and discover new destinations through grounded AI recommendations and personalized planning tools.
 
-## 2. Updated Product Objectives
-*   **Geographic Verification:** Ensure all AI recommendations correspond to real-world entities with verified Google Maps links.
-*   **Contextual Discovery:** Use the user's current physical location (via Geolocation API) to ground recommendations in nearby relevance when appropriate.
-*   **Verified Sources:** Provide "Proof of Recommendation" through grounding chunks that include map URIs and search-sourced snippets.
+## 2. Product Objectives
+*   **Memory Preservation:** Provide a high-fidelity interface for logging travel experiences including ratings, pros, and cons.
+*   **Progress Analytics:** Quantify travel history with a real-time dashboard showing progress against global benchmarks (US States, World Countries).
+*   **Intelligent Discovery:** Leverage Google Maps and Search grounding via Gemini to suggest new locations based on deep profile context and historical sentiment.
+*   **Automated Planning:** Convert bucket-list dreams into actionable 3-day itineraries with the click of a button.
+*   **Self-Discovery (New):** Visualize travel "DNA" using a radar chart derived from AI analysis of user logs.
+*   **Visual Exploration (New):** Experience trip history through density-based heatmapping.
 
 ## 3. Functional Requirements
 
-### 3.1. Travel Journaling (Core)
-*   **Log Entry:** Location Name, Type (State/Country), Rating (0-10), Date, and tag-based Likes/Dislikes.
-*   **Aggregation:** Automatic counters for unique countries and states visited.
+### 3.1. Analytics Dashboard
+*   **State Tracking:** Visual progress bar and counter for the 50 US States.
+*   **Country Tracking:** Counter for unique countries visited against a global baseline.
+*   **Travel DNA (New):** A 6-axis radar chart visualizing Nature, Culture, Adventure, Relaxation, Food, and Urban scores. AI-analyzed from history and sentiment.
 
-### 3.2. Maps & Search Grounding
-*   **Verified Recommendations:** The AI utilizes the `googleMaps` and `googleSearch` tools to validate suggested destinations.
-*   **Grounding Links:** Each recommendation card displays "View on Maps" or "Source" links extracted from the model's metadata.
-*   **Geolocation Integration:** The app requests browser `geolocation` permissions to pass the user's current coordinates to the Gemini model for localized context.
+### 3.2. Travel Journaling (Core)
+*   **Log Entry:** Location Name (with typeahead suggestions), Type (State/Country), Star Rating (0-5), Pros (Highs), Cons (Lows), and Visit Date.
+*   **Sharing:** Integrated Web Share API support to export formatted summaries of travel logs.
 
-### 3.3. AI Recommendation Logic
-*   **Model:** Transitioned to `gemini-2.5-flash-lite-latest` to support specialized grounding tools.
-*   **Parsing Strategy:** Replaced strict JSON schemas with semi-structured text parsing to maintain compatibility with the Google Maps tool.
-*   **Scoring:** Every recommendation includes a "Match Score" based on the alignment between history/profile and the suggested location.
-*   **Enrichment:** Upon saving a recommendation to the wishlist, the app triggers a background task using `gemini-3-flash-preview` to fetch detailed descriptions and key attractions.
+### 3.3. Profile & Interest Engine
+*   **Expanded Styles:** Selection from 50+ predefined travel styles.
+*   **Custom Styles:** Ability to add user-defined travel styles.
 
-### 3.4. Wishlist & Profile
-*   **Persistent Grounding:** Saved recommendations retain their original map and source links in the Wishlist view.
-*   **Progressive Enrichment:** The Wishlist view displays enriched details (descriptions, attractions) as they are retrieved.
-*   **Interest Context:** Profile "Bucket Lists" and "Travel Styles" are injected as high-priority constraints for the AI.
+### 3.4. AI Recommendations (Grounded)
+*   **Grounded Context:** Uses `googleMaps` and `googleSearch` tools to provide real-world verified suggestions.
+
+### 3.5. Automated Planning
+*   **Itinerary Generator:** Uses Gemini AI to generate a structured 3-day itinerary for wishlist destinations.
+
+### 3.6. Interactive Cartography (Enhanced)
+*   **Heatmapping (New):** Toggleable density heatmap overlay using visited locations and their ratings.
+*   **Controls:** Manual zoom, destination recentering, and live coordinate display.
 
 ## 4. Technical Specifications
-*   **AI SDK:** `@google/genai` (utilizing `tools: [{googleMaps: {}}, {googleSearch: {}}]`).
-*   **Grounding Metadata:** Processing of `groundingMetadata.groundingChunks` to extract `maps.uri` and `web.uri`.
-*   **Browser APIs:** 
-    *   `navigator.geolocation`: Used to provide `latLng` context to the model.
-    *   `localStorage`: Persistent state for history, profile, and saved recommendations.
-*   **Frontend Stack:** React 19, Tailwind CSS, Font Awesome 6.
+*   **AI SDK:** `@google/genai` (Gemini 3 Flash).
+*   **Mapping:** Leaflet.js with CartoDB Dark Matter tiles and Leaflet.heat plugin.
+*   **Charts:** Custom SVG implementation for radar chart visualization.
 
 ## 5. UI/UX Design Standards
-*   **Grounded Visuals:** Grounded recommendations are distinguished by a map-marker icon.
-*   **Actionable Links:** Small, pill-style link buttons on cards provide one-click access to Google Maps.
-*   **Progressive Loading:** "Enriching details..." animations show the user that the AI is working to gather more info for their wishlist items.
-*   **Dynamic States:** 
-    *   "AI Ready to Recommend" empty state.
-    *   Loading state with spinner and reassuring copy while the model queries live map data.
+*   **Aesthetics:** High-contrast dark mode inspired by premium creative tools.
+*   **Progressive Revelation:** Complex AI data (like DNA and itineraries) is revealed through smooth "Magic" interactions.
 
 ## 6. Security & Permissions
-*   **Geolocation:** User must explicitly grant permission; app provides graceful fallback to "General" (Global) recommendations if denied.
-*   **API Privacy:** API interactions are handled via environment variables with no user-exposed key management.
-
-## 7. Future Roadmap
-*   **Visual Analysis:** Allowing users to upload photos of places they liked to improve the "Style" matching.
-*   **Route Planning:** Using Maps grounding to suggest a 3-day itinerary for recommended locations.
-*   **Social Export:** Generating a "Shareable Map" of visited locations and wishlist items.
+*   **Geolocation:** Opt-in permission for localized travel tips.
+*   **Data Sovereignty:** All journal data remains on the user's local device.

@@ -4,6 +4,7 @@ import { LocationType, TravelLocation } from '../types';
 import { US_STATES, COMMON_COUNTRIES } from '../constants';
 import { Button } from './Button';
 import { StarRating } from './StarRating';
+import { analyzeLogImage } from '../services/geminiService';
 
 interface LocationFormProps {
   onAdd: (location: Omit<TravelLocation, 'id'>) => void;
@@ -18,19 +19,21 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const [dislikeInput, setDislikeInput] = useState('');
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const list = type === LocationType.STATE ? US_STATES : COMMON_COUNTRIES;
     if (name.trim().length > 0) {
       const filtered = list.filter(item => 
         item.toLowerCase().includes(name.toLowerCase())
-      ).slice(0, 8); // Slightly more suggestions for better choice
+      ).slice(0, 8);
       setSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
     } else {
@@ -40,7 +43,6 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
     setHighlightedIndex(-1);
   }, [name, type]);
 
-  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
@@ -50,6 +52,28 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleScanPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const extractedData = await analyzeLogImage(base64);
+        if (extractedData.name) setName(extractedData.name);
+        if (extractedData.dateVisited) setDate(extractedData.dateVisited);
+        if (extractedData.likes) setLikes(prev => [...new Set([...prev, ...(extractedData.likes || [])])]);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleAddLike = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && likeInput.trim()) {
@@ -69,7 +93,6 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (!showSuggestions) return;
-
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
@@ -95,16 +118,7 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-
-    onAdd({
-      name,
-      type,
-      rating,
-      likes,
-      dislikes,
-      dateVisited: date
-    });
-
+    onAdd({ name, type, rating, likes, dislikes, dateVisited: date });
     setName('');
     setLikes([]);
     setDislikes([]);
@@ -114,6 +128,23 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
 
   return (
     <form onSubmit={handleSubmit} className="bg-[#1b2228] p-8 rounded border border-[#2c3440] shadow-2xl space-y-8 max-w-2xl mx-auto relative">
+      <div className="flex justify-between items-center bg-[#14181c] p-3 rounded-sm border border-[#2c3440]/50 mb-4">
+        <div className="flex items-center gap-3">
+          <i className="fas fa-magic text-[#00e054]"></i>
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#9ab]">AI-Assisted Pre-fill</span>
+        </div>
+        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleScanPhoto} />
+        <Button 
+          type="button" 
+          variant="ghost" 
+          className="!text-[9px]" 
+          onClick={() => fileInputRef.current?.click()}
+          isLoading={isScanning}
+        >
+          <i className="fas fa-camera mr-1"></i> SCAN PHOTO
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2 relative" ref={containerRef}>
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Location Name</label>
@@ -130,7 +161,6 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
               required
               autoComplete="off"
             />
-            {/* Custom Autocomplete Dropdown */}
             {showSuggestions && (
               <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#1b2228] border border-[#456] rounded-sm shadow-[0_10px_40px_rgba(0,0,0,0.5)] z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
                 <div className="bg-[#2c3440] px-3 py-1.5 border-b border-[#456] flex justify-between items-center">
@@ -151,18 +181,9 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
                       <i className={`fas fa-location-dot text-[10px] ${idx === highlightedIndex ? 'opacity-100' : 'opacity-20'}`}></i>
                       <span>{item}</span>
                     </div>
-                    {idx === highlightedIndex && (
-                      <span className="text-[8px] opacity-40 italic">Press Enter</span>
-                    )}
                   </button>
                 ))}
               </div>
-            )}
-            {/* No Results found state */}
-            {name.length > 2 && !showSuggestions && name !== suggestions[0] && (
-               <div className="absolute top-full left-0 right-0 mt-1.5 bg-[#1b2228] border border-[#456] p-3 text-center rounded-sm z-50">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-[#567]">New Entry</p>
-               </div>
             )}
           </div>
         </div>
@@ -194,10 +215,7 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
           <StarRating rating={rating} showNumber size="md" />
         </div>
         <input 
-          type="range" 
-          min="0" 
-          max="5" 
-          step="0.5" 
+          type="range" min="0" max="5" step="0.5" 
           value={rating}
           onChange={(e) => setRating(parseFloat(e.target.value))}
           className="w-full h-1 bg-[#2c3440] rounded-lg appearance-none cursor-pointer accent-[#00e054]"
@@ -208,13 +226,11 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
         <div className="space-y-3">
           <label className="text-[10px] font-black text-[#00e054] uppercase tracking-widest block">Highs</label>
           <input 
-            type="text" 
-            value={likeInput}
+            type="text" value={likeInput}
             onChange={(e) => setLikeInput(e.target.value)}
             onKeyDown={handleAddLike}
             className="w-full bg-[#2c3440] px-4 py-2 rounded-sm text-sm text-white outline-none border-none focus:ring-1 focus:ring-[#00e054]/30"
             placeholder="Add a high..."
-            autoComplete="off"
           />
           <div className="flex flex-wrap gap-2">
             {likes.map((item, idx) => (
@@ -229,13 +245,11 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
         <div className="space-y-3">
           <label className="text-[10px] font-black text-red-500 uppercase tracking-widest block">Lows</label>
           <input 
-            type="text" 
-            value={dislikeInput}
+            type="text" value={dislikeInput}
             onChange={(e) => setDislikeInput(e.target.value)}
             onKeyDown={handleAddDislike}
             className="w-full bg-[#2c3440] px-4 py-2 rounded-sm text-sm text-white outline-none border-none focus:ring-1 focus:ring-red-500/30"
             placeholder="Add a low..."
-            autoComplete="off"
           />
           <div className="flex flex-wrap gap-2">
             {dislikes.map((item, idx) => (
@@ -252,15 +266,12 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
         <div>
           <label className="text-[9px] font-black text-[#567] uppercase tracking-widest block mb-1">Date Logged</label>
           <input 
-            type="date" 
-            value={date}
+            type="date" value={date}
             onChange={(e) => setDate(e.target.value)}
             className="text-[12px] text-white font-bold bg-transparent outline-none border-none cursor-pointer"
           />
         </div>
-        <Button type="submit" variant="primary" className="px-8 py-3">
-           SAVE LOG
-        </Button>
+        <Button type="submit" variant="primary" className="px-8 py-3">SAVE LOG</Button>
       </div>
     </form>
   );

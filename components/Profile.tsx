@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { Button } from './Button';
 
@@ -8,7 +8,7 @@ interface ProfileProps {
   onUpdate: (profile: UserProfile) => void;
 }
 
-const TRAVEL_STYLES = [
+const PREDEFINED_TRAVEL_STYLES = [
   'Adventure', 'Luxury', 'Budget', 'Culture', 'Nature', 'Foodie', 'Relaxation', 'Solo', 'Family',
   'Backpacking', 'Road Trip', 'Sustainable', 'Ecotourism', 'Wellness', 'Spiritual', 'Voluntourism',
   'Business', 'Bleisure', 'Digital Nomad', 'Cruise', 'Safari', 'Skiing', 'Beach', 'Mountain',
@@ -20,8 +20,13 @@ const TRAVEL_STYLES = [
 
 export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<UserProfile>(profile);
+  const [editedProfile, setEditedProfile] = useState<UserProfile>({
+    ...profile,
+    customTravelStyles: profile.customTravelStyles || []
+  });
   const [newBucketItem, setNewBucketItem] = useState('');
+  const [styleSearch, setStyleSearch] = useState('');
+  const [customStyleInput, setCustomStyleInput] = useState('');
 
   const handleSave = () => {
     onUpdate(editedProfile);
@@ -34,6 +39,10 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
       ? current.filter(s => s !== style)
       : [...current, style];
     setEditedProfile({ ...editedProfile, travelStyle: updated });
+  };
+
+  const clearStyles = () => {
+    setEditedProfile({ ...editedProfile, travelStyle: [] });
   };
 
   const addBucketItem = () => {
@@ -52,6 +61,39 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
       bucketList: editedProfile.bucketList.filter((_, i) => i !== index)
     });
   };
+
+  const addCustomStyle = () => {
+    const customStyles = editedProfile.customTravelStyles || [];
+    if (customStyleInput.trim() && customStyles.length < 5) {
+      const newStyle = customStyleInput.trim();
+      if (!customStyles.includes(newStyle) && !PREDEFINED_TRAVEL_STYLES.includes(newStyle)) {
+        setEditedProfile({
+          ...editedProfile,
+          customTravelStyles: [...customStyles, newStyle],
+          travelStyle: [...editedProfile.travelStyle, newStyle]
+        });
+        setCustomStyleInput('');
+      }
+    }
+  };
+
+  const removeCustomStyle = (style: string) => {
+    const customStyles = editedProfile.customTravelStyles || [];
+    setEditedProfile({
+      ...editedProfile,
+      customTravelStyles: customStyles.filter(s => s !== style),
+      travelStyle: editedProfile.travelStyle.filter(s => s !== style)
+    });
+  };
+
+  const combinedStyles = useMemo(() => {
+    const customStyles = editedProfile.customTravelStyles || [];
+    return [...new Set([...PREDEFINED_TRAVEL_STYLES, ...customStyles])].sort();
+  }, [editedProfile.customTravelStyles]);
+
+  const filteredStyles = useMemo(() => {
+    return combinedStyles.filter(s => s.toLowerCase().includes(styleSearch.toLowerCase()));
+  }, [combinedStyles, styleSearch]);
 
   if (!isEditing) {
     return (
@@ -138,54 +180,122 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
           />
         </div>
 
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Travel Styles ({editedProfile.travelStyle.length})</label>
-          <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto pr-2 custom-scrollbar p-1">
-            {TRAVEL_STYLES.map(style => (
-              <button
-                key={style}
-                type="button"
-                onClick={() => toggleStyle(style)}
-                className={`px-3 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest transition-all ${
-                  editedProfile.travelStyle.includes(style)
-                    ? 'bg-[#00c030] text-white'
-                    : 'bg-[#2c3440] text-[#9ab] hover:text-white'
-                }`}
+        <div className="space-y-6 pt-4 border-t border-[#2c3440]">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black text-[#9ab] uppercase tracking-widest">Travel Discovery Styles</h3>
+            <span className="text-[8px] font-bold text-[#567] uppercase tracking-tighter">Influences AI Suggestions</span>
+          </div>
+
+          {/* Custom Style Addition */}
+          <div className="space-y-3 bg-[#14181c] p-4 rounded-sm border border-[#2c3440]">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[9px] font-black text-[#567] uppercase tracking-widest block">Add Your Own Styles (Max 5)</label>
+              <span className="text-[9px] font-bold text-[#456]">{(editedProfile.customTravelStyles || []).length}/5</span>
+            </div>
+            <div className="flex gap-2">
+              <input 
+                type="text"
+                value={customStyleInput}
+                onChange={(e) => setCustomStyleInput(e.target.value)}
+                placeholder="e.g. Astro-Tourism"
+                className="flex-grow bg-[#2c3440] px-3 py-2 rounded-sm text-[11px] font-bold text-white outline-none focus:ring-1 focus:ring-[#456]"
+                disabled={(editedProfile.customTravelStyles || []).length >= 5}
+              />
+              <Button 
+                variant="secondary" 
+                onClick={addCustomStyle} 
+                className="!py-1"
+                disabled={!customStyleInput.trim() || (editedProfile.customTravelStyles || []).length >= 5}
               >
-                {style}
+                ADD
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {(editedProfile.customTravelStyles || []).map(style => (
+                <div key={style} className="flex items-center gap-1 bg-[#00c030]/10 border border-[#00c030]/30 px-2 py-0.5 rounded-sm">
+                  <span className="text-[9px] font-black text-[#00c030] uppercase tracking-tighter">{style}</span>
+                  <button onClick={() => removeCustomStyle(style)} className="text-[#00c030] hover:text-white transition-colors">
+                    <i className="fas fa-times text-[8px]"></i>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Predefined Styles ({editedProfile.travelStyle.length})</label>
+              <button 
+                type="button" 
+                onClick={clearStyles}
+                className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors"
+              >
+                Clear All
               </button>
-            ))}
+            </div>
+            
+            <div className="relative group">
+              <i className="fas fa-filter absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-[#567]"></i>
+              <input 
+                type="text"
+                placeholder="Search styles..."
+                value={styleSearch}
+                onChange={(e) => setStyleSearch(e.target.value)}
+                className="w-full bg-[#2c3440] pl-8 pr-4 py-2 rounded-sm text-[11px] font-bold text-white outline-none focus:ring-1 focus:ring-[#456] mb-2"
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto pr-2 custom-scrollbar p-1">
+              {filteredStyles.length > 0 ? filteredStyles.map(style => (
+                <button
+                  key={style}
+                  type="button"
+                  onClick={() => toggleStyle(style)}
+                  className={`px-3 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest transition-all ${
+                    editedProfile.travelStyle.includes(style)
+                      ? 'bg-[#00c030] text-white'
+                      : 'bg-[#2c3440] text-[#9ab] hover:text-white'
+                  }`}
+                >
+                  {style}
+                </button>
+              )) : (
+                <p className="text-[10px] text-[#567] italic py-2 text-center w-full">No matching styles found</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Bucket List</label>
+        <div className="space-y-4 pt-4 border-t border-[#2c3440]">
+          <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Bucket List Goals</label>
           <div className="flex gap-2">
             <input 
               type="text"
               value={newBucketItem}
               onChange={(e) => setNewBucketItem(e.target.value)}
-              placeholder="e.g. Iceland"
-              className="flex-grow bg-[#2c3440] px-4 py-2 rounded-sm border-none text-white text-sm outline-none focus:ring-1 focus:ring-[#456]"
+              placeholder="e.g. Northern Lights in Iceland"
+              className="flex-grow bg-[#2c3440] px-4 py-2 rounded-sm border-none text-sm text-white outline-none focus:ring-1 focus:ring-[#456]"
               onKeyDown={(e) => e.key === 'Enter' && addBucketItem()}
             />
-            <Button onClick={addBucketItem} variant="secondary" type="button">ADD</Button>
+            <Button variant="secondary" onClick={addBucketItem} className="!py-1">ADD</Button>
           </div>
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
             {editedProfile.bucketList.map((item, idx) => (
-              <span key={idx} className="bg-[#2c3440] text-white px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-tighter flex items-center gap-2 border border-white/5">
-                {item}
-                <button type="button" onClick={() => removeBucketItem(idx)} className="text-[#567] hover:text-red-500">
-                  <i className="fas fa-times"></i>
+              <div key={idx} className="flex items-center justify-between bg-[#2c3440] px-4 py-2 rounded-sm group">
+                <span className="text-xs font-bold text-white tracking-tight">{item}</span>
+                <button onClick={() => removeBucketItem(idx)} className="text-[#567] hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                  <i className="fas fa-trash-alt text-[10px]"></i>
                 </button>
-              </span>
+              </div>
             ))}
           </div>
         </div>
-      </div>
 
-      <div className="pt-8 border-t border-[#2c3440]">
-        <Button onClick={handleSave} className="w-full !py-3" type="button">SAVE PROFILE</Button>
+        <div className="pt-6">
+           <Button variant="primary" className="w-full !py-3" onClick={handleSave}>
+              SAVE PROFILE
+           </Button>
+        </div>
       </div>
     </div>
   );
