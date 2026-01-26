@@ -2,10 +2,22 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TravelLocation, AIRecommendation, UserProfile, GroundingLink, LocationType, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+
+// Lazy initialization to prevent crashes if API key is missing
+let aiInstance: GoogleGenAI | null = null;
+const getAI = (): GoogleGenAI => {
+  if (!aiInstance) {
+    if (!API_KEY) {
+      console.warn('GEMINI_API_KEY is not set. AI features will not work.');
+    }
+    aiInstance = new GoogleGenAI({ apiKey: API_KEY });
+  }
+  return aiInstance;
+};
 
 export const getAIRecommendations = async (
-  visitedLocations: TravelLocation[], 
+  visitedLocations: TravelLocation[],
   profile: UserProfile,
   coords?: { latitude: number; longitude: number },
   vibe?: VibeType
@@ -14,7 +26,7 @@ export const getAIRecommendations = async (
     return [];
   }
 
-  const historyText = visitedLocations.map(loc => 
+  const historyText = visitedLocations.map(loc =>
     `- ${loc.name} (${loc.type}): Rating ${loc.rating}/5. Likes: ${loc.likes.join(', ')}.`
   ).join('\n');
 
@@ -38,7 +50,7 @@ export const getAIRecommendations = async (
   ---`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -86,7 +98,7 @@ export const getSquadActivitySuggestions = async (squad: SquadTrip): Promise<str
   Focus on activities that blend different styles (e.g. food + history). Respond in a simple JSON array of strings.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -114,7 +126,7 @@ export const getTravelMuseInsights = async (
 ): Promise<TravelMuseInsight[]> => {
   if (visitedLocations.length === 0) return [];
 
-  const historyText = visitedLocations.map(loc => 
+  const historyText = visitedLocations.map(loc =>
     `Location: ${loc.name}. Rating: ${loc.rating}/5. Likes: ${loc.likes.join(', ')}. Dislikes: ${loc.dislikes.join(', ')}.`
   ).join('\n');
 
@@ -134,7 +146,7 @@ export const getTravelMuseInsights = async (
   ---`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-2.5-flash",
       contents: prompt,
       config: {
@@ -178,9 +190,9 @@ export const getTravelMuseInsights = async (
  */
 export const analyzeLogImage = async (base64Image: string): Promise<Partial<TravelLocation>> => {
   const prompt = "Extract the travel location name, date (YYYY-MM-DD), and 3 potential highlights/pros from this image. If it's a receipt or ticket, look for city/country names and business names. Respond in JSON.";
-  
+
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: [
         { text: prompt },
@@ -222,7 +234,7 @@ export const performSemanticSearch = async (query: string, locations: TravelLoca
   Return only a JSON array of the IDs.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -245,7 +257,7 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
   const prompt = `Score Travel DNA (0-100) for axes: Nature, Culture, Adventure, Relaxation, Food, Urban based on history:\n${historyText}\nRespond in JSON.`;
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -273,7 +285,7 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
 export const getLocationDetails = async (name: string, type: LocationType): Promise<{ description: string; attractions: string[] }> => {
   const prompt = `2-sentence description of ${name} and 4 key attractions. JSON format.`;
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -298,7 +310,7 @@ export const getLocationDetails = async (name: string, type: LocationType): Prom
 export const generateItinerary = async (name: string, type: LocationType, description: string, attractions: string[]): Promise<ItineraryDay[]> => {
   const prompt = `Generate a 3-day travel itinerary for ${name} using attractions: ${attractions.join(', ')}. JSON format with day, title, and activities.`;
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -326,7 +338,7 @@ export const generateItinerary = async (name: string, type: LocationType, descri
 export const geocodeLocation = async (name: string, type: LocationType): Promise<{ lat: number; lng: number } | null> => {
   const prompt = `Lat/Lng for ${name} (${type}). JSON format.`;
   try {
-    const response = await ai.models.generateContent({
+    const response = await getAI().models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -357,11 +369,11 @@ export const exportItineraryToICS = (recName: string, days: ItineraryDay[]): str
   ];
 
   const now = new Date();
-  
+
   days.forEach((day, i) => {
     const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1 + i);
     const dateStr = startDate.toISOString().split('T')[0].replace(/-/g, '');
-    
+
     ics.push("BEGIN:VEVENT");
     ics.push(`SUMMARY:${recName} Day ${day.day}: ${day.title}`);
     ics.push(`DTSTART;VALUE=DATE:${dateStr}`);

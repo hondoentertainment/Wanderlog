@@ -20,7 +20,7 @@ const App: React.FC = () => {
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
   const [currentView, setCurrentView] = useState<'history' | 'wishlist' | 'profile' | 'add' | 'squad'>('history');
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
@@ -30,7 +30,7 @@ const App: React.FC = () => {
   const [isGeocoding, setIsGeocoding] = useState<string | null>(null);
   const [loadingItinerary, setLoadingItinerary] = useState<string | null>(null);
   const [loadingDNA, setLoadingDNA] = useState(false);
-  
+
   const [semanticSearchQuery, setSemanticSearchQuery] = useState('');
   const [isSearchingAI, setIsSearchingAI] = useState(false);
   const [semanticResultIds, setSemanticResultIds] = useState<string[] | null>(null);
@@ -108,14 +108,14 @@ const App: React.FC = () => {
   const handleRefreshMuse = async () => {
     if (!profile || locations.length === 0) return;
     setIsLoadingMuse(true);
-    
+
     let currentCoords: { latitude: number; longitude: number } | undefined;
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
       });
       currentCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-    } catch (e) {}
+    } catch (e) { }
 
     try {
       const insights = await getTravelMuseInsights(locations, profile, currentCoords);
@@ -164,7 +164,7 @@ const App: React.FC = () => {
     if (navigator.share) {
       try {
         await navigator.share({ title: `Trip to ${loc.name}`, text, url: window.location.href });
-      } catch (err) {}
+      } catch (err) { }
     } else {
       await navigator.clipboard.writeText(text);
       alert('Summary copied!');
@@ -181,7 +181,7 @@ const App: React.FC = () => {
     try {
       const details = await getLocationDetails(rec.name, rec.type);
       setSavedRecommendations(prev => prev.map(item => item.id === newId ? { ...item, ...details } : item));
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const handleGenerateItinerary = async (rec: SavedRecommendation) => {
@@ -208,7 +208,7 @@ const App: React.FC = () => {
           setLocations(prev => prev.map(l => l.id === loc.id ? { ...l, coordinates: coords } : l));
           setActiveMap({ id: loc.id, name: loc.name, coords });
         }
-      } catch (e) {} finally { setIsGeocoding(null); }
+      } catch (e) { } finally { setIsGeocoding(null); }
     }
   };
 
@@ -227,14 +227,21 @@ const App: React.FC = () => {
       });
   }, [locations, searchTerm, filterType, filterMinRating, sortOrder, semanticResultIds]);
 
-  if (!profile) return null;
+  if (!profile) return (
+    <div className="min-h-screen bg-[#14181c] flex items-center justify-center">
+      <div className="text-center">
+        <i className="fas fa-location-arrow text-[#00e054] text-4xl animate-pulse"></i>
+        <p className="text-[#9ab] mt-4 text-sm font-bold uppercase tracking-widest">Loading WanderLog...</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#14181c] text-[#9ab] selection:bg-[#00c030] selection:text-white pb-24">
       {activeMap && (
-        <MapModal 
-          name={activeMap.name} 
-          coords={activeMap.coords} 
+        <MapModal
+          name={activeMap.name}
+          coords={activeMap.coords}
           onClose={() => setActiveMap(null)}
           onSaveView={(c) => setLocations(prev => prev.map(l => l.id === activeMap.id ? { ...l, coordinates: c } : l))}
           allLocations={locations}
@@ -249,9 +256,9 @@ const App: React.FC = () => {
             </h1>
             <nav className="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest">
               {['history', 'wishlist', 'squad', 'profile'].map(v => (
-                <button 
-                  key={v} 
-                  onClick={() => setCurrentView(v as any)} 
+                <button
+                  key={v}
+                  onClick={() => setCurrentView(v as any)}
                   className={`transition-colors hover:text-white ${currentView === v ? 'text-white border-b-2 border-[#00e054] pb-1' : ''}`}
                 >
                   {v === 'squad' ? 'Squads' : v.charAt(0).toUpperCase() + v.slice(1)}
@@ -260,21 +267,21 @@ const App: React.FC = () => {
             </nav>
           </div>
           <div className="flex items-center gap-4">
-             <Button variant="primary" onClick={() => setCurrentView('add')}><i className="fas fa-plus"></i> LOG</Button>
-             
-             {/* Profile trigger in upper right corner */}
-             <button 
-                onClick={() => setCurrentView('profile')}
-                className={`flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#2c3440] transition-all group ${currentView === 'profile' ? 'bg-[#2c3440]' : ''}`}
-             >
-                <div className="hidden sm:block text-right">
-                  <span className="block text-[10px] font-black text-white uppercase tracking-tighter leading-none">{profile.name}</span>
-                  <span className="block text-[8px] font-bold text-[#567] uppercase tracking-widest mt-0.5 group-hover:text-[#9ab] transition-colors">View Profile</span>
-                </div>
-                <div className="w-8 h-8 rounded border border-[#456] bg-[#2c3440] flex items-center justify-center text-[11px] font-black text-white overflow-hidden group-hover:border-[#00e054] transition-all">
-                  {profile.name.charAt(0)}
-                </div>
-             </button>
+            <Button variant="primary" onClick={() => setCurrentView('add')}><i className="fas fa-plus"></i> LOG</Button>
+
+            {/* Profile trigger in upper right corner */}
+            <button
+              onClick={() => setCurrentView('profile')}
+              className={`flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#2c3440] transition-all group ${currentView === 'profile' ? 'bg-[#2c3440]' : ''}`}
+            >
+              <div className="hidden sm:block text-right">
+                <span className="block text-[10px] font-black text-white uppercase tracking-tighter leading-none">{profile.name}</span>
+                <span className="block text-[8px] font-bold text-[#567] uppercase tracking-widest mt-0.5 group-hover:text-[#9ab] transition-colors">View Profile</span>
+              </div>
+              <div className="w-8 h-8 rounded border border-[#456] bg-[#2c3440] flex items-center justify-center text-[11px] font-black text-white overflow-hidden group-hover:border-[#00e054] transition-all">
+                {profile.name.charAt(0)}
+              </div>
+            </button>
           </div>
         </div>
       </header>
@@ -283,49 +290,49 @@ const App: React.FC = () => {
         {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
         {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
         {currentView === 'squad' && <SquadHub trips={squadTrips} onCreate={handleCreateSquad} onJoin={handleJoinSquad} onUpdate={handleUpdateSquad} onDelete={handleDeleteSquad} />}
-        
+
         {currentView === 'wishlist' && (
           <div className="space-y-8">
-             <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest border-b border-[#2c3440] pb-2">Your Wishlist</h2>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               {savedRecommendations.length > 0 ? savedRecommendations.map(rec => (
-                 <div key={rec.id} className="bg-[#1b2228] p-6 rounded border border-[#2c3440] hover:bg-[#202830] transition-colors group relative flex flex-col h-full">
-                    <h3 className="text-xl font-black text-white leading-tight">{rec.name}</h3>
-                    <p className="text-[#9ab] text-[13px] italic mt-2 border-l-2 border-[#2c3440] pl-3">"{rec.reason}"</p>
-                    
-                    <div className="mt-4 flex-grow">
-                       {!rec.itinerary ? (
-                         <Button variant="ghost" className="w-full !px-0" onClick={() => handleGenerateItinerary(rec)} isLoading={loadingItinerary === rec.id}>
-                           <i className="fas fa-wand-magic-sparkles text-[#ff8000]"></i> PLAN 3-DAY ITINERARY
-                         </Button>
-                       ) : (
-                         <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                               <span className="text-[10px] font-black uppercase text-[#ff8000]">3-Day Planner</span>
-                               <Button variant="ghost" className="!p-1 !text-[8px]" onClick={() => handleExportItinerary(rec)}>
-                                  <i className="fas fa-calendar-plus"></i> EXPORT .ICS
-                               </Button>
-                            </div>
-                            {rec.itinerary.map(day => (
-                              <div key={day.day} className="bg-[#2c3440]/30 p-2 rounded-sm text-[10px] text-[#9ab]">
-                                <span className="font-black text-[#40bcf4]">Day {day.day}:</span> {day.title}
-                              </div>
-                            ))}
-                         </div>
-                       )}
-                    </div>
-                 </div>
-               )) : (
-                 <div className="col-span-full py-16 text-center opacity-30 text-[10px] font-black uppercase tracking-widest border border-dashed border-[#2c3440]">Wishlist is empty</div>
-               )}
-             </div>
+            <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest border-b border-[#2c3440] pb-2">Your Wishlist</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {savedRecommendations.length > 0 ? savedRecommendations.map(rec => (
+                <div key={rec.id} className="bg-[#1b2228] p-6 rounded border border-[#2c3440] hover:bg-[#202830] transition-colors group relative flex flex-col h-full">
+                  <h3 className="text-xl font-black text-white leading-tight">{rec.name}</h3>
+                  <p className="text-[#9ab] text-[13px] italic mt-2 border-l-2 border-[#2c3440] pl-3">"{rec.reason}"</p>
+
+                  <div className="mt-4 flex-grow">
+                    {!rec.itinerary ? (
+                      <Button variant="ghost" className="w-full !px-0" onClick={() => handleGenerateItinerary(rec)} isLoading={loadingItinerary === rec.id}>
+                        <i className="fas fa-wand-magic-sparkles text-[#ff8000]"></i> PLAN 3-DAY ITINERARY
+                      </Button>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase text-[#ff8000]">3-Day Planner</span>
+                          <Button variant="ghost" className="!p-1 !text-[8px]" onClick={() => handleExportItinerary(rec)}>
+                            <i className="fas fa-calendar-plus"></i> EXPORT .ICS
+                          </Button>
+                        </div>
+                        {rec.itinerary.map(day => (
+                          <div key={day.day} className="bg-[#2c3440]/30 p-2 rounded-sm text-[10px] text-[#9ab]">
+                            <span className="font-black text-[#40bcf4]">Day {day.day}:</span> {day.title}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )) : (
+                <div className="col-span-full py-16 text-center opacity-30 text-[10px] font-black uppercase tracking-widest border border-dashed border-[#2c3440]">Wishlist is empty</div>
+              )}
+            </div>
           </div>
         )}
 
         {currentView === 'history' && (
           <div className="space-y-12">
             <Dashboard locations={locations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} isDNAlOading={loadingDNA} />
-            
+
             <section className="bg-[#1b2228] p-6 rounded border border-[#2c3440]">
               <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">Proactive Muse Insights</h3>
               <TravelMuse insights={museInsights} isLoading={isLoadingMuse} onRefresh={handleRefreshMuse} />
@@ -343,21 +350,21 @@ const App: React.FC = () => {
                 <div className="flex items-center gap-4">
                   <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest">Diary</h2>
                   <div className="flex bg-[#2c3440] rounded-sm p-1">
-                    <input 
-                      type="text" 
-                      placeholder="Semantic Search AI..." 
-                      value={semanticSearchQuery} 
+                    <input
+                      type="text"
+                      placeholder="Semantic Search AI..."
+                      value={semanticSearchQuery}
                       onChange={(e) => {
                         setSemanticSearchQuery(e.target.value);
                         if (!e.target.value) setSemanticResultIds(null);
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleSemanticSearch()}
-                      className="bg-transparent border-none outline-none text-[11px] font-bold text-white px-2 w-48" 
+                      className="bg-transparent border-none outline-none text-[11px] font-bold text-white px-2 w-48"
                     />
                     <Button variant="ghost" className="!p-1 !text-[10px]" onClick={handleSemanticSearch} isLoading={isSearchingAI}><i className="fas fa-brain"></i></Button>
                   </div>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center gap-4">
                   <input type="text" placeholder="Filter name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-[#2c3440] px-4 py-1.5 rounded-sm text-[11px] font-bold text-white outline-none w-40" />
                   <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="bg-[#1b2228] text-[10px] font-black uppercase text-[#9ab] outline-none">
