@@ -255,7 +255,7 @@ const App: React.FC = () => {
               <i className="fas fa-location-arrow text-[#00e054]"></i> WANDERLOG
             </h1>
             <nav className="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest">
-              {['history', 'wishlist', 'squad', 'profile'].map(v => (
+              {['history', 'wishlist', 'squad'].map(v => (
                 <button
                   key={v}
                   onClick={() => setCurrentView(v as any)}
