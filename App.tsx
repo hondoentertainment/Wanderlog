@@ -17,13 +17,15 @@ import { BucketList } from './components/BucketList';
 import { ToastContainer, useToast } from './components/Toast';
 import { MobileNav } from './components/MobileNav';
 import { TravelMilestones } from './components/TravelMilestones';
+import { TripComparison } from './components/TripComparison';
+import { StatsCard } from './components/StatsCard';
 
 const App: React.FC = () => {
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard'>('history');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
@@ -278,8 +280,10 @@ const App: React.FC = () => {
             <nav className="hidden md:flex items-center gap-6 text-[11px] font-bold uppercase tracking-wider">
               {[
                 { id: 'history', label: 'History', icon: 'fa-clock-rotate-left' },
-                { id: 'savedtrips', label: 'Saved Trips', icon: 'fa-bookmark' },
+                { id: 'savedtrips', label: 'Saved', icon: 'fa-bookmark' },
                 { id: 'bucketlist', label: 'Bucket List', icon: 'fa-list-check' },
+                { id: 'compare', label: 'Compare', icon: 'fa-scale-balanced' },
+                { id: 'statscard', label: 'Stats Card', icon: 'fa-id-card' },
                 { id: 'squad', label: 'Squads', icon: 'fa-user-group' },
               ].map(item => (
                 <button
@@ -318,6 +322,8 @@ const App: React.FC = () => {
         {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
         {currentView === 'squad' && <SquadHub trips={squadTrips} onCreate={handleCreateSquad} onJoin={handleJoinSquad} onUpdate={handleUpdateSquad} onDelete={handleDeleteSquad} />}
         {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={handleRemoveFromBucketList} />}
+        {currentView === 'compare' && <TripComparison locations={locations} />}
+        {currentView === 'statscard' && <StatsCard locations={locations} profile={profile} />}
 
         {currentView === 'savedtrips' && (
           <div className="space-y-8">

@@ -6,10 +6,10 @@ interface MobileNavProps {
 }
 
 const navItems = [
-    { id: 'history', label: 'History', icon: 'fa-clock-rotate-left' },
+    { id: 'history', label: 'Home', icon: 'fa-home' },
     { id: 'savedtrips', label: 'Saved', icon: 'fa-bookmark' },
-    { id: 'bucketlist', label: 'Bucket List', icon: 'fa-list-check' },
-    { id: 'squad', label: 'Squads', icon: 'fa-user-group' },
+    { id: 'compare', label: 'Compare', icon: 'fa-scale-balanced' },
+    { id: 'statscard', label: 'Stats', icon: 'fa-id-card' },
 ];
 
 export const MobileNav: React.FC<MobileNavProps> = ({ currentView, onNavigate }) => {
@@ -21,8 +21,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({ currentView, onNavigate })
                         key={item.id}
                         onClick={() => onNavigate(item.id)}
                         className={`flex flex-col items-center justify-center gap-1 px-4 py-2 transition-all ${currentView === item.id
-                                ? 'text-[#00e054]'
-                                : 'text-[#567] hover:text-[#9ab]'
+                            ? 'text-[#00e054]'
+                            : 'text-[#567] hover:text-[#9ab]'
                             }`}
                     >
                         <i className={`fas ${item.icon} text-lg`}></i>
