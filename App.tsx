@@ -13,13 +13,14 @@ import { Dashboard } from './components/Dashboard';
 import { Timeline } from './components/Timeline';
 import { TravelMuse } from './components/TravelMuse';
 import { SquadHub } from './components/SquadHub';
+import { BucketList } from './components/BucketList';
 
 const App: React.FC = () => {
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'wishlist' | 'profile' | 'add' | 'squad'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'wishlist' | 'profile' | 'add' | 'squad' | 'bucketlist'>('history');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
@@ -173,6 +174,18 @@ const App: React.FC = () => {
 
   const handleUpdateProfile = (newProfile: UserProfile) => setProfile(newProfile);
 
+  const handleAddToBucketList = (item: string) => {
+    if (profile && !profile.bucketList.includes(item)) {
+      setProfile({ ...profile, bucketList: [...profile.bucketList, item] });
+    }
+  };
+
+  const handleRemoveFromBucketList = (item: string) => {
+    if (profile) {
+      setProfile({ ...profile, bucketList: profile.bucketList.filter(i => i !== item) });
+    }
+  };
+
   const handleSaveRecommendation = async (rec: AIRecommendation) => {
     if (savedRecommendations.some(s => s.name === rec.name)) return;
     const newId = crypto.randomUUID();
@@ -255,13 +268,13 @@ const App: React.FC = () => {
               <i className="fas fa-location-arrow text-[#00e054]"></i> WANDERLOG
             </h1>
             <nav className="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest">
-              {['history', 'wishlist', 'squad'].map(v => (
+              {['history', 'wishlist', 'bucketlist', 'squad'].map(v => (
                 <button
                   key={v}
                   onClick={() => setCurrentView(v as any)}
                   className={`transition-colors hover:text-white ${currentView === v ? 'text-white border-b-2 border-[#00e054] pb-1' : ''}`}
                 >
-                  {v === 'squad' ? 'Squads' : v.charAt(0).toUpperCase() + v.slice(1)}
+                  {v === 'squad' ? 'Squads' : v === 'bucketlist' ? 'Bucket List' : v.charAt(0).toUpperCase() + v.slice(1)}
                 </button>
               ))}
             </nav>
@@ -290,6 +303,7 @@ const App: React.FC = () => {
         {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
         {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
         {currentView === 'squad' && <SquadHub trips={squadTrips} onCreate={handleCreateSquad} onJoin={handleJoinSquad} onUpdate={handleUpdateSquad} onDelete={handleDeleteSquad} />}
+        {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={handleRemoveFromBucketList} />}
 
         {currentView === 'wishlist' && (
           <div className="space-y-8">
