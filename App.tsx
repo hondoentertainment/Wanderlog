@@ -275,7 +275,7 @@ const App: React.FC = () => {
         <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <h1 className="text-white font-black tracking-tighter text-2xl flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('history')}>
-              <i className="fas fa-location-arrow text-[#00e054]"></i> WANDERLOG
+              <i className="fas fa-location-arrow text-[#00e054]"></i> TRAVEL MUSE
             </h1>
             <nav className="hidden md:flex items-center gap-6 text-[11px] font-bold uppercase tracking-wider">
               {[

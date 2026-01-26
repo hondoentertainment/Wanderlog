@@ -76,8 +76,8 @@ export const StatsCard: React.FC<StatsCardProps> = ({ locations, profile }) => {
                             key={t}
                             onClick={() => setTheme(t)}
                             className={`px-4 py-2 rounded-lg text-xs font-bold uppercase transition-all ${theme === t
-                                    ? 'ring-2 ring-[#00e054] ring-offset-2 ring-offset-[#14181c]'
-                                    : 'opacity-60 hover:opacity-100'
+                                ? 'ring-2 ring-[#00e054] ring-offset-2 ring-offset-[#14181c]'
+                                : 'opacity-60 hover:opacity-100'
                                 }`}
                             style={{ background: themes[t].bg }}
                         >
@@ -142,7 +142,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ locations, profile }) => {
                     <div className="text-center pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.1)' }}>
                         <div className="flex items-center justify-center gap-2">
                             <i className="fas fa-location-arrow" style={{ color: currentTheme.accent }}></i>
-                            <span className="text-sm font-bold" style={{ color: currentTheme.secondary }}>WanderLog</span>
+                            <span className="text-sm font-bold" style={{ color: currentTheme.secondary }}>Travel Muse</span>
                         </div>
                     </div>
                 </div>
@@ -154,7 +154,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ locations, profile }) => {
                     <i className="fas fa-download"></i> Download Card
                 </Button>
                 <Button variant="ghost" onClick={() => {
-                    const stats = `🌍 My Travel Stats\n\n${countries.size} Countries\n${states.size} US States\n${locations.length} Trips\n${years.size} Years of Travel\n⭐ ${avgRating} Avg Rating\n\nTracked with WanderLog`;
+                    const stats = `🌍 My Travel Stats\n\n${countries.size} Countries\n${states.size} US States\n${locations.length} Trips\n${years.size} Years of Travel\n⭐ ${avgRating} Avg Rating\n\nTracked with Travel Muse`;
                     navigator.clipboard.writeText(stats);
                     alert('Stats copied to clipboard!');
                 }}>
