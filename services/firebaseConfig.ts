@@ -7,8 +7,8 @@ const firebaseConfig = {
     authDomain: "wanderlog-55e55.firebaseapp.com",
     projectId: "wanderlog-55e55",
     storageBucket: "wanderlog-55e55.firebasestorage.app",
-    messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-    appId: "YOUR_APP_ID"
+    messagingSenderId: "179811177732",
+    appId: "1:179811177732:web:3b13d3b066700f933b6c51"
 };
 
 const app = initializeApp(firebaseConfig);
