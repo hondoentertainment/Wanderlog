@@ -14,13 +14,15 @@ import { Timeline } from './components/Timeline';
 import { TravelMuse } from './components/TravelMuse';
 import { SquadHub } from './components/SquadHub';
 import { BucketList } from './components/BucketList';
+import { ToastContainer, useToast } from './components/Toast';
+import { MobileNav } from './components/MobileNav';
 
 const App: React.FC = () => {
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'wishlist' | 'profile' | 'add' | 'squad' | 'bucketlist'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist'>('history');
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
@@ -38,6 +40,8 @@ const App: React.FC = () => {
 
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
+
+  const { toasts, showToast, removeToast } = useToast();
 
   useEffect(() => {
     const { locations: savedLocs, profile: savedProfile, savedRecommendations: savedRecs, squadTrips: savedSquads } = loadAppData();
@@ -57,6 +61,7 @@ const App: React.FC = () => {
     const location: TravelLocation = { ...newLoc, id: crypto.randomUUID() };
     setLocations(prev => [location, ...prev]);
     setCurrentView('history');
+    showToast(`${newLoc.name} added to your travel diary! 🎉`, 'success');
   };
 
   const handleDeleteLocation = (id: string) => {
@@ -177,12 +182,14 @@ const App: React.FC = () => {
   const handleAddToBucketList = (item: string) => {
     if (profile && !profile.bucketList.includes(item)) {
       setProfile({ ...profile, bucketList: [...profile.bucketList, item] });
+      showToast(`${item} added to your bucket list! ✨`, 'success');
     }
   };
 
   const handleRemoveFromBucketList = (item: string) => {
     if (profile) {
       setProfile({ ...profile, bucketList: profile.bucketList.filter(i => i !== item) });
+      showToast(`${item} removed from bucket list`, 'info');
     }
   };
 
@@ -267,14 +274,20 @@ const App: React.FC = () => {
             <h1 className="text-white font-black tracking-tighter text-2xl flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('history')}>
               <i className="fas fa-location-arrow text-[#00e054]"></i> WANDERLOG
             </h1>
-            <nav className="hidden md:flex items-center gap-6 text-[11px] font-black uppercase tracking-widest">
-              {['history', 'wishlist', 'bucketlist', 'squad'].map(v => (
+            <nav className="hidden md:flex items-center gap-6 text-[11px] font-bold uppercase tracking-wider">
+              {[
+                { id: 'history', label: 'History', icon: 'fa-clock-rotate-left' },
+                { id: 'savedtrips', label: 'Saved Trips', icon: 'fa-bookmark' },
+                { id: 'bucketlist', label: 'Bucket List', icon: 'fa-list-check' },
+                { id: 'squad', label: 'Squads', icon: 'fa-user-group' },
+              ].map(item => (
                 <button
-                  key={v}
-                  onClick={() => setCurrentView(v as any)}
-                  className={`transition-colors hover:text-white ${currentView === v ? 'text-white border-b-2 border-[#00e054] pb-1' : ''}`}
+                  key={item.id}
+                  onClick={() => setCurrentView(item.id as any)}
+                  className={`flex items-center gap-2 transition-all hover:text-white ${currentView === item.id ? 'text-white border-b-2 border-[#00e054] pb-1' : 'text-[#9ab]'}`}
                 >
-                  {v === 'squad' ? 'Squads' : v === 'bucketlist' ? 'Bucket List' : v.charAt(0).toUpperCase() + v.slice(1)}
+                  <i className={`fas ${item.icon} text-xs`}></i>
+                  {item.label}
                 </button>
               ))}
             </nav>
@@ -305,9 +318,14 @@ const App: React.FC = () => {
         {currentView === 'squad' && <SquadHub trips={squadTrips} onCreate={handleCreateSquad} onJoin={handleJoinSquad} onUpdate={handleUpdateSquad} onDelete={handleDeleteSquad} />}
         {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={handleRemoveFromBucketList} />}
 
-        {currentView === 'wishlist' && (
+        {currentView === 'savedtrips' && (
           <div className="space-y-8">
-            <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest border-b border-[#2c3440] pb-2">Your Wishlist</h2>
+            <div className="flex items-center justify-between border-b border-[#2c3440] pb-3">
+              <h2 className="text-base font-bold text-white flex items-center gap-3">
+                <i className="fas fa-bookmark text-[#ff8000]"></i> Saved Trips
+              </h2>
+              <span className="text-xs font-medium text-[#567]">{savedRecommendations.length} saved</span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {savedRecommendations.length > 0 ? savedRecommendations.map(rec => (
                 <div key={rec.id} className="bg-[#1b2228] p-6 rounded border border-[#2c3440] hover:bg-[#202830] transition-colors group relative flex flex-col h-full">
@@ -337,7 +355,11 @@ const App: React.FC = () => {
                   </div>
                 </div>
               )) : (
-                <div className="col-span-full py-16 text-center opacity-30 text-[10px] font-black uppercase tracking-widest border border-dashed border-[#2c3440]">Wishlist is empty</div>
+                <div className="col-span-full py-16 text-center border border-dashed border-[#2c3440] rounded-lg">
+                  <i className="fas fa-compass text-[#2c3440] text-5xl mb-4"></i>
+                  <p className="text-[#567] text-sm font-semibold mb-2">No saved trips yet</p>
+                  <p className="text-[#456] text-xs">Save AI recommendations from the History tab to plan your adventures!</p>
+                </div>
               )}
             </div>
           </div>
@@ -404,13 +426,26 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 )) : (
-                  <div className="py-12 text-center opacity-20 text-[10px] font-black uppercase tracking-widest">No logs found</div>
+                  <div className="py-16 text-center">
+                    <i className="fas fa-plane-departure text-[#2c3440] text-5xl mb-4"></i>
+                    <p className="text-[#567] text-sm font-semibold mb-2">No travel logs yet</p>
+                    <p className="text-[#456] text-xs mb-4">Start documenting your adventures!</p>
+                    <Button variant="primary" onClick={() => setCurrentView('add')}>
+                      <i className="fas fa-plus"></i> Log Your First Trip
+                    </Button>
+                  </div>
                 )}
               </div>
             </section>
           </div>
         )}
       </main>
+
+      {/* Mobile Bottom Navigation */}
+      <MobileNav currentView={currentView} onNavigate={(v) => setCurrentView(v as any)} />
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };
