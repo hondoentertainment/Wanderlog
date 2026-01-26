@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, TravelMuseInsight, SquadTrip } from './types';
-import { loadAppData, saveAppData } from './services/storageService';
+import { loadAppData, saveToCloud } from './services/storageService';
 import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights } from './services/geminiService';
 import { LocationForm } from './components/LocationForm';
 import { Recommendations } from './components/Recommendations';
@@ -52,21 +51,55 @@ const App: React.FC = () => {
 
   // Redirect to login if not authenticated
   if (authLoading) return null;
+  // Redirect to login if not authenticated
+  if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
   if (!user) return <Login />;
 
-  useEffect(() => {
-    const { locations: savedLocs, profile: savedProfile, savedRecommendations: savedRecs, squadTrips: savedSquads } = loadAppData();
-    setLocations(savedLocs);
-    setProfile(savedProfile);
-    setSavedRecommendations(savedRecs);
-    setSquadTrips(savedSquads || []);
-  }, []);
+  // Data Loading
+  const [loadingData, setLoadingData] = useState(true);
 
+  // Initial Data Fetch
   useEffect(() => {
-    if (profile) {
-      saveAppData(locations, profile, savedRecommendations, squadTrips);
-    }
-  }, [locations, profile, savedRecommendations, squadTrips]);
+    const fetchData = async () => {
+      if (!user) return;
+      try {
+        const data = await loadAppData(user.uid);
+        setLocations(data.locations);
+        setProfile(data.profile);
+        setSavedRecommendations(data.savedRecommendations);
+        setSquadTrips(data.squadTrips || []);
+      } catch (error) {
+        console.error("Failed to load data", error);
+        showToast("Failed to sync data", "error");
+      } finally {
+        setLoadingData(false);
+      }
+    };
+    fetchData();
+  }, [user]);
+
+  // Debounced Save to Cloud
+  useEffect(() => {
+    if (!profile || !user || loadingData) return;
+
+    const timer = setTimeout(() => {
+      // console.log("Auto-saving to cloud...");
+      saveToCloud(user.uid, { locations, profile, savedRecommendations, squadTrips });
+    }, 2000); // 2 second debounce
+
+    return () => clearTimeout(timer);
+  }, [locations, profile, savedRecommendations, squadTrips, user, loadingData]);
+
+  if (loadingData) {
+    return (
+      <div className="min-h-screen bg-[#14181c] flex items-center justify-center">
+        <div className="text-center">
+          <i className="fas fa-cloud-arrow-down fa-bounce text-3xl text-[#00e054] mb-4"></i>
+          <p className="text-[#567] text-xs font-bold uppercase tracking-widest">Syncing with Jules...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddLocation = (newLoc: Omit<TravelLocation, 'id'>) => {
     const location: TravelLocation = { ...newLoc, id: crypto.randomUUID() };
