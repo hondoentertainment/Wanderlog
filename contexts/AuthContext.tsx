@@ -29,9 +29,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
             await signInWithPopup(auth, googleProvider);
             showToast('Welcome back to Travel Muse!', 'success');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error signing in:', error);
-            showToast('Error signing in with Google', 'error');
+            // Show more detailed error for debugging
+            if (error.code === 'auth/unauthorized-domain') {
+                showToast('Domain not authorized in Firebase Console', 'error');
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                showToast('Sign-in cancelled', 'info');
+            } else {
+                showToast(`Login failed: ${error.message || 'Unknown error'}`, 'error');
+            }
         }
     };
 

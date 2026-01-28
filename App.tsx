@@ -45,23 +45,20 @@ const App: React.FC = () => {
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
 
+  // Data Loading - MUST be declared before any conditional returns
+  const [loadingData, setLoadingData] = useState(true);
+
   // Auth State
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
-  // Redirect to login if not authenticated
-  if (authLoading) return null;
-  // Redirect to login if not authenticated
-  if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
-  if (!user) return <Login />;
-
-  // Data Loading
-  const [loadingData, setLoadingData] = useState(true);
-
-  // Initial Data Fetch
+  // Initial Data Fetch - MUST be before any conditional returns
   useEffect(() => {
     const fetchData = async () => {
-      if (!user) return;
+      if (!user) {
+        setLoadingData(false);
+        return;
+      }
       try {
         const data = await loadAppData(user.uid);
         setLocations(data.locations);
@@ -78,7 +75,7 @@ const App: React.FC = () => {
     fetchData();
   }, [user]);
 
-  // Debounced Save to Cloud
+  // Debounced Save to Cloud - MUST be before any conditional returns
   useEffect(() => {
     if (!profile || !user || loadingData) return;
 
@@ -89,6 +86,10 @@ const App: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [locations, profile, savedRecommendations, squadTrips, user, loadingData]);
+
+  // NOW we can have conditional returns - after ALL hooks are declared
+  if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
+  if (!user) return <Login />;
 
   if (loadingData) {
     return (
