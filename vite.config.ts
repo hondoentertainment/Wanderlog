@@ -18,6 +18,17 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        rollupOptions: {
+          output: {
+            manualChunks: {
+              'firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+              'gemini': ['@google/genai'],
+              'router': ['react-router-dom'],
+            }
+          }
+        }
       }
     };
 });
