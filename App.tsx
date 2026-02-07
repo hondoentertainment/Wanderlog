@@ -45,18 +45,12 @@ const App: React.FC = () => {
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
 
+  // Data Loading
+  const [loadingData, setLoadingData] = useState(true);
+
   // Auth State
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
-
-  // Redirect to login if not authenticated
-  if (authLoading) return null;
-  // Redirect to login if not authenticated
-  if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
-  if (!user) return <Login />;
-
-  // Data Loading
-  const [loadingData, setLoadingData] = useState(true);
 
   // Initial Data Fetch
   useEffect(() => {
@@ -83,12 +77,15 @@ const App: React.FC = () => {
     if (!profile || !user || loadingData) return;
 
     const timer = setTimeout(() => {
-      // console.log("Auto-saving to cloud...");
       saveToCloud(user.uid, { locations, profile, savedRecommendations, squadTrips });
     }, 2000); // 2 second debounce
 
     return () => clearTimeout(timer);
   }, [locations, profile, savedRecommendations, squadTrips, user, loadingData]);
+
+  // Redirect to login if not authenticated
+  if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
+  if (!user) return <Login />;
 
   if (loadingData) {
     return (
