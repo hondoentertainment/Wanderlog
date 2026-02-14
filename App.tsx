@@ -178,7 +178,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
-  console.log("App rendering");
   // --- High Performance Initialization (Cloud-Only) ---
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -213,7 +212,6 @@ const App: React.FC = () => {
 
   // Auth State
   const { user, loading: authLoading } = useAuth();
-  console.log("Header rendering", { user, currentView });
   const { showToast } = useToast();
 
   useEffect(() => {
