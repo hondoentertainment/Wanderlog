@@ -218,6 +218,16 @@ const App: React.FC = () => {
     let mounted = true;
     const fetchData = async () => {
       if (!user) {
+        setLocations([]);
+        setProfile({
+          name: 'Traveler',
+          bio: 'Exploring the world one step at a time.',
+          travelStyle: ['Adventure'],
+          bucketList: [],
+          customTravelStyles: []
+        });
+        setSavedRecommendations([]);
+        setSquadTrips([]);
         setLoadingData(false);
         return;
       }

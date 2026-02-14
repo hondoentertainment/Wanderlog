@@ -3,7 +3,7 @@ import { db } from './firebaseConfig';
 import { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
 import { STORAGE_KEY } from '../constants';
 
-const DEFAULT_PROFILE: UserProfile = {
+export const DEFAULT_PROFILE: UserProfile = {
   name: 'Traveler',
   bio: 'Exploring the world one step at a time.',
   travelStyle: ['Adventure'],

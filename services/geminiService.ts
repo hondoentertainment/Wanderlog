@@ -51,7 +51,7 @@ export const getAIRecommendations = async (
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         tools: [{ googleMaps: {} }, { googleSearch: {} }],
@@ -99,7 +99,7 @@ export const getSquadActivitySuggestions = async (squad: SquadTrip): Promise<str
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -147,7 +147,7 @@ export const getTravelMuseInsights = async (
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         tools: [{ googleMaps: {} }, { googleSearch: {} }],
@@ -193,7 +193,7 @@ export const analyzeLogImage = async (base64Image: string): Promise<Partial<Trav
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: [
         { text: prompt },
         { inlineData: { mimeType: "image/jpeg", data: base64Image } }
@@ -245,7 +245,7 @@ export const performSemanticSearch = async (query: string, locations: TravelLoca
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -284,7 +284,7 @@ export const getDiscoveryRationale = async (
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
     });
     return response.text || "This matches your unique travel DNA perfectly.";
@@ -317,7 +317,7 @@ export const getDiscoveryContext = async (
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -344,7 +344,7 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
 
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -372,7 +372,7 @@ export const getLocationDetails = async (name: string, type: LocationType): Prom
   const prompt = `2-sentence description of ${name} and 4 key attractions. JSON format.`;
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -397,7 +397,7 @@ export const generateItinerary = async (name: string, type: LocationType, descri
   const prompt = `Generate a 3-day travel itinerary for ${name} using attractions: ${attractions.join(', ')}. JSON format with day, title, and activities.`;
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -425,7 +425,7 @@ export const geocodeLocation = async (name: string, type: LocationType): Promise
   const prompt = `Lat/Lng for ${name} (${type}). JSON format.`;
   try {
     const response = await getAI().models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-1.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
