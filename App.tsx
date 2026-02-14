@@ -496,7 +496,7 @@ const App: React.FC = () => {
 
           {currentView === 'history' && (
             <div className="space-y-12">
-              <Dashboard locations={locations} dna={profile.dna || generateTravelDNA(locations, profile)} onRefreshDNA={handleRefreshDNA} />
+              <Dashboard locations={locations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} />
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
