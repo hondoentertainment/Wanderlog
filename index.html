@@ -89,13 +89,6 @@
 </head>
 
 <body>
-    <script>
-        window.onerror = function (msg, url, line, col, error) {
-            console.error("Global Error:", msg, error);
-            document.body.innerHTML += '<div style="color:red;padding:20px;background:white;z-index:9999;position:fixed">' + msg + '</div>';
-        };
-        console.log("Global Error Handler Installed");
-    </script>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
 </body>

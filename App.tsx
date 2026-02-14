@@ -178,7 +178,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
-  console.log("App rendering");
   // --- High Performance Initialization (Cloud-Only) ---
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
