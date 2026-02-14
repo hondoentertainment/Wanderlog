@@ -1,7 +1,9 @@
 
 export enum LocationType {
   STATE = 'state',
-  COUNTRY = 'country'
+  COUNTRY = 'country',
+  CITY = 'city',
+  LANDMARK = 'landmark'
 }
 
 export type VibeType = 'adventurous' | 'tired' | 'cultural' | 'foodie' | 'nature-loving';
@@ -13,6 +15,13 @@ export interface GroundingLink {
   uri: string;
 }
 
+export interface WishlistData {
+  season?: string;
+  priority?: 'high' | 'medium' | 'low';
+  reason?: string;
+  discoveryRationale?: string;
+}
+
 export interface TravelLocation {
   id: string;
   name: string;
@@ -21,9 +30,11 @@ export interface TravelLocation {
   likes: string[];
   dislikes: string[];
   dateVisited: string;
-  dateEndVisited?: string; // Optional end date for trip duration
-  companions?: CompanionType[]; // Who you traveled with
+  isVisited: boolean;
+  dateEndVisited?: string;
+  companions?: CompanionType[];
   coordinates?: { lat: number; lng: number; zoom?: number };
+  wishlistData?: WishlistData;
 }
 
 export interface TravelDNA {
@@ -96,4 +107,173 @@ export interface StorageData {
   profile: UserProfile;
   savedRecommendations: SavedRecommendation[];
   squadTrips: SquadTrip[];
+}
+
+// Achievement Badges
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  condition: string;
+  unlockedAt?: string;
+}
+
+// Ask Jules Chat
+export interface JulesMessage {
+  id: string;
+  role: 'user' | 'jules';
+  content: string;
+  timestamp: string;
+}
+
+// ====================
+// Trip Sharing & Collaborative Features
+// ====================
+
+// Shared trip visibility options
+export type ShareScope = 'private' | 'friends' | 'public';
+
+// Public-facing trip summary (minimal data for sharing)
+export interface SharedTrip {
+  id: string;
+  ownerId: string;
+  ownerName: string;
+  ownerAvatar?: string;
+  name: string;
+  destination: string;
+  type: LocationType;
+  rating: number;
+  highlights: string[]; // Top 3 likes
+  photoUrls?: string[];
+  visitDate: string;
+  createdAt: string;
+  shareScope: ShareScope;
+  likeCount: number;
+  commentCount: number;
+}
+
+// Collaborative bucket list
+export interface SharedBucketList {
+  id: string;
+  name: string;
+  ownerId: string;
+  sharedWith: string[]; // User IDs with access
+  items: SharedBucketItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SharedBucketItem {
+  id: string;
+  addedBy: string; // User ID
+  addedByName: string;
+  destination: string;
+  type: LocationType;
+  notes?: string;
+  votes: { [userId: string]: 'want' | 'pass' };
+  priorityScore: number; // Calculated from votes
+  status: 'pending' | 'planned' | 'visited';
+  completedAt?: string;
+  completedBy?: string;
+}
+
+// Friend connection
+export interface FriendConnection {
+  id: string;
+  userId: string;
+  friendId: string;
+  status: 'pending' | 'accepted';
+  createdAt: string;
+}
+
+// User profile extension for public sharing
+export interface PublicProfile {
+  userId: string;
+  displayName: string;
+  avatarUrl?: string;
+  bio?: string;
+  shareStats: boolean;
+  shareLocations: boolean;
+  totalCountries: number;
+  totalStates: number;
+  favoriteDestinations: string[];
+}
+
+// Enhanced SquadTrip with collaboration features
+export interface ChatMessage {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface TripBudget {
+  total: number;
+  spent: number;
+  currency: string;
+  contributions: { [userId: string]: number };
+}
+
+export interface ItineraryActivity {
+  id: string;
+  name: string;
+  time?: string;
+  location?: string;
+  addedBy: string;
+  status: 'proposed' | 'confirmed' | 'done';
+}
+
+export interface CollaborativeItinerary {
+  day: number;
+  title: string;
+  activities: ItineraryActivity[];
+  votes: { [userId: string]: string[] }; // User votes for activities
+}
+
+// Enhanced SquadTrip interface (extends existing SquadTrip)
+export interface EnhancedSquadTrip extends SquadTrip {
+  ownerId: string;
+  isShared: boolean; // Can non-members view?
+  chatMessages?: ChatMessage[];
+  budget?: TripBudget;
+  itinerary?: CollaborativeItinerary[];
+}
+
+// Stat comparison between friends
+export interface StatComparison {
+  mutualDestinations: string[];
+  userUnique: string[];
+  friendUnique: string[];
+  userScore: number;
+  friendScore: number;
+}
+
+// Friend request
+export interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  fromUserName?: string;
+  fromUserAvatar?: string;
+  toUserId: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: string;
+}
+
+// Shared trip comment
+export interface SharedTripComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+}
+
+// Shared trip like
+export interface SharedTripLike {
+  userId: string;
+  timestamp: string;
 }

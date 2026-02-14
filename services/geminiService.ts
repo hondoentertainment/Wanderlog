@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TravelLocation, AIRecommendation, UserProfile, GroundingLink, LocationType, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from "../types";
 
-const API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY || '';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
 
 // Lazy initialization to prevent crashes if API key is missing
 let aiInstance: GoogleGenAI | null = null;
@@ -220,17 +220,27 @@ export const analyzeLogImage = async (base64Image: string): Promise<Partial<Trav
 /**
  * Semantic Search: Finds logs matching a natural language query
  */
-export const performSemanticSearch = async (query: string, locations: TravelLocation[]): Promise<string[]> => {
-  const context = locations.map(l => ({
-    id: l.id,
-    name: l.name,
-    likes: l.likes,
-    dislikes: l.dislikes,
-    rating: l.rating
-  }));
+export const performSemanticSearch = async (query: string, locations: TravelLocation[], squadTrips: SquadTrip[] = []): Promise<string[]> => {
+  const context = {
+    memories: locations.map(l => ({
+      id: l.id,
+      name: l.name,
+      likes: l.likes,
+      dislikes: l.dislikes,
+      rating: l.rating,
+      type: 'location'
+    })),
+    trips: squadTrips.map(t => ({
+      id: t.id,
+      name: t.name,
+      destination: t.destination,
+      activities: t.items,
+      type: 'trip'
+    }))
+  };
 
-  const prompt = `Given the following travel logs: ${JSON.stringify(context)}
-  Find the IDs of the logs that best match the user's natural language search query: "${query}"
+  const prompt = `Given the following travel data: ${JSON.stringify(context)}
+  Find the IDs of the memories (locations) or collaborative trips that best match the user's natural language search query: "${query}"
   Return only a JSON array of the IDs.`;
 
   try {
@@ -249,6 +259,82 @@ export const performSemanticSearch = async (query: string, locations: TravelLoca
   } catch (error) {
     console.error("Semantic search failed", error);
     return [];
+  }
+};
+
+/**
+ * Discovery Rationale: Explains why an unvisited place matches Travel DNA
+ */
+export const getDiscoveryRationale = async (
+  name: string,
+  type: LocationType,
+  visitedLocations: TravelLocation[],
+  profile: UserProfile
+): Promise<string> => {
+  const historyText = visitedLocations.slice(0, 10).map(loc =>
+    `- ${loc.name}: ${loc.rating}/5. Likes: ${loc.likes.join(', ')}`
+  ).join('\n');
+
+  const prompt = `Explain why I would like to visit ${name} (${type}) based on my travel history:
+  ${historyText}
+  
+  And my styles: ${profile.travelStyle.join(', ')}
+  
+  Provide a one-sentence, highly personal rationale that builds trust by referencing specific past experiences or styles. Do not be generic. Respond as Jules.`;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+    });
+    return response.text || "This matches your unique travel DNA perfectly.";
+  } catch (e) {
+    return "A perfect match for your exploration style.";
+  }
+};
+
+/**
+ * Discovery Context: Detailed insights for the unvisited location page
+ */
+export interface DiscoveryContext {
+  rationale: string;
+  bestTime: string;
+  similarTo: string[];
+}
+
+export const getDiscoveryContext = async (
+  name: string,
+  visitedLocations: TravelLocation[],
+  profile: UserProfile
+): Promise<DiscoveryContext> => {
+  const historyNames = visitedLocations.map(l => l.name).join(', ');
+  const prompt = `Provide discovery context for ${name}:
+  1. Personal Rationale (based on experience with ${historyNames})
+  2. Best Time to Visit (Short phrase)
+  3. 2 places exactly from this list that are most similar: ${historyNames || 'None'}
+  
+  Respond in JSON.`;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            rationale: { type: Type.STRING },
+            bestTime: { type: Type.STRING },
+            similarTo: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["rationale", "bestTime", "similarTo"]
+        }
+      }
+    });
+    return JSON.parse(response.text || '{"rationale": "Matches your style.", "bestTime": "Anytime", "similarTo": []}');
+  } catch (e) {
+    return { rationale: "Matches your style.", bestTime: "Anytime", similarTo: [] };
   }
 };
 
@@ -363,7 +449,7 @@ export const exportItineraryToICS = (recName: string, days: ItineraryDay[]): str
   let ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//WanderLog//Travel Planner//EN",
+    "PRODID:-//Travel Muse//Travel Planner//EN",
     "CALSCALE:GREGORIAN",
     "METHOD:PUBLISH"
   ];
@@ -383,4 +469,62 @@ export const exportItineraryToICS = (recName: string, days: ItineraryDay[]): str
 
   ics.push("END:VCALENDAR");
   return ics.join("\r\n");
+};
+
+/**
+ * Ask Jules - Conversational AI Travel Coach
+ */
+export const askJules = async (
+  question: string,
+  locations: TravelLocation[],
+  profile: UserProfile,
+  chatHistory: { role: 'user' | 'jules'; content: string }[] = []
+): Promise<string> => {
+  const historyText = locations.slice(0, 20).map(loc =>
+    `- ${loc.name} (${loc.type}): ${loc.rating}/5 stars. Liked: ${loc.likes.slice(0, 3).join(', ')}`
+  ).join('\n');
+
+  const recentMessages = chatHistory.slice(-6).map(m =>
+    `${m.role === 'user' ? 'User' : 'Jules'}: ${m.content}`
+  ).join('\n');
+
+  const prompt = `You are Jules, a friendly and knowledgeable AI travel coach for the Travel Muse app. You have a warm, encouraging personality and deep expertise in travel planning.
+
+Your user's profile:
+- Name: ${profile.name}
+- Travel Styles: ${profile.travelStyle.join(', ')}
+- Bucket List: ${profile.bucketList.join(', ') || 'Not set'}
+
+Their travel history (${locations.length} total trips):
+${historyText || 'No trips logged yet'}
+
+${recentMessages ? `Recent conversation:\n${recentMessages}\n` : ''}
+
+User's question: ${question}
+
+Instructions:
+- Be conversational, helpful, and enthusiastic about travel
+- Give specific, actionable advice based on their history and preferences
+- If they ask for recommendations, suggest places that match their travel DNA
+- Keep responses concise but informative (2-3 paragraphs max)
+- Use emojis sparingly for warmth
+- If you don't know something specific, be honest and suggest alternatives
+- Reference their past trips when relevant to make it personal
+
+Respond as Jules:`;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+      },
+    });
+
+    return response.text || "I'm having trouble thinking right now. Give me a moment and try again!";
+  } catch (error) {
+    console.error("Error in askJules:", error);
+    return "Oops! I seem to be having a connection issue. Please try again in a moment. ✈️";
+  }
 };

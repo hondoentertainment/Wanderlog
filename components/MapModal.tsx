@@ -41,7 +41,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
         .addTo(mapInstance.current)
         .bindPopup(`<b>${name}</b>`)
         .openPopup();
-      
+
       markers.current.push(primaryMarker);
 
       // Listen for moves/zooms to update UI display
@@ -75,7 +75,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
       const heatPoints = allLocations
         .filter(l => l.coordinates)
         .map(l => [l.coordinates!.lat, l.coordinates!.lng, l.rating / 5]);
-      
+
       // Add current location if not in list
       if (!allLocations.find(l => l.name === name)) {
         heatPoints.push([coords.lat, coords.lng, 1]);
@@ -87,7 +87,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
           radius: 25,
           blur: 15,
           maxZoom: 10,
-          gradient: {0.4: 'blue', 0.65: 'lime', 1: 'red'}
+          gradient: { 0.4: 'blue', 0.65: 'lime', 1: 'red' }
         }).addTo(mapInstance.current);
       }
     } else {
@@ -107,7 +107,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
         lng: center.lng,
         zoom: zoom
       });
-      
+
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 2000);
     }
@@ -130,7 +130,8 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
       <div className="bg-[#14181c] w-full max-w-4xl h-[70vh] rounded border border-[#2c3440] overflow-hidden shadow-2xl flex flex-col relative">
         <div className="p-4 border-b border-[#2c3440] flex justify-between items-center bg-[#1b2228] z-10">
           <div>
-            <h3 className="text-lg font-black text-white uppercase tracking-tight leading-none">{name}</h3>
+            <h2 className="text-white font-black tracking-tighter text-lg italic uppercase">Travel Muse Map</h2>
+            <h2 className="text-lg font-black text-white uppercase tracking-tight leading-none">{name}</h2>
             <div className="flex items-center gap-3 mt-1">
               <p className="text-[9px] text-[#567] font-black uppercase tracking-widest">
                 Lat: {currentView.lat.toFixed(4)} Lng: {currentView.lng.toFixed(4)}
@@ -142,18 +143,17 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <button 
+            <button
               onClick={() => setShowHeatmap(!showHeatmap)}
-              className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest border transition-all rounded-sm flex items-center gap-2 ${
-                showHeatmap ? 'bg-[#ff8000] border-[#ff8000] text-white' : 'bg-transparent border-[#2c3440] text-[#9ab] hover:text-white'
-              }`}
+              className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest border transition-all rounded-sm flex items-center gap-2 ${showHeatmap ? 'bg-[#ff8000] border-[#ff8000] text-white' : 'bg-transparent border-[#2c3440] text-[#9ab] hover:text-white'
+                }`}
             >
               <i className="fas fa-fire"></i> {showHeatmap ? 'HEATMAP ON' : 'HEATMAP OFF'}
             </button>
             {onSaveView && (
-              <Button 
-                variant={isSaved ? "success" : "ghost"} 
-                className={`!px-3 !py-1 !text-[10px] transition-all duration-300 ${isSaved ? 'scale-105' : ''}`} 
+              <Button
+                variant={isSaved ? "success" : "ghost"}
+                className={`!px-3 !py-1 !text-[10px] transition-all duration-300 ${isSaved ? 'scale-105' : ''}`}
                 onClick={handleSaveView}
               >
                 {isSaved ? (
@@ -163,7 +163,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
                 )}
               </Button>
             )}
-            <button 
+            <button
               onClick={onClose}
               className="w-8 h-8 rounded-sm bg-[#2c3440] flex items-center justify-center text-[#9ab] hover:text-white transition-colors"
             >
@@ -171,20 +171,20 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
             </button>
           </div>
         </div>
-        
+
         <div className="flex-grow relative bg-[#0a0a0a]">
           <div ref={mapRef} className="absolute inset-0" />
-          
+
           {/* Custom Interactive Controls */}
           <div className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000] flex flex-col gap-2">
-            <button 
+            <button
               onClick={() => adjustZoom(1)}
               className="w-10 h-10 bg-[#1b2228] border border-[#2c3440] text-white rounded shadow-xl flex items-center justify-center hover:bg-[#2c3440] transition-colors"
               title="Zoom In"
             >
               <i className="fas fa-plus"></i>
             </button>
-            <button 
+            <button
               onClick={() => adjustZoom(-1)}
               className="w-10 h-10 bg-[#1b2228] border border-[#2c3440] text-white rounded shadow-xl flex items-center justify-center hover:bg-[#2c3440] transition-colors"
               title="Zoom Out"
@@ -192,7 +192,7 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
               <i className="fas fa-minus"></i>
             </button>
             <div className="h-4"></div>
-            <button 
+            <button
               onClick={recenter}
               className="w-10 h-10 bg-[#00c030] text-white rounded shadow-xl flex items-center justify-center hover:bg-[#00e054] transition-colors animate-pulse"
               title="Recenter on Destination"
@@ -202,12 +202,12 @@ export const MapModal: React.FC<MapModalProps> = ({ name, coords, onClose, onSav
           </div>
 
           <div className="absolute bottom-4 left-4 z-[1000] bg-[#14181c]/60 backdrop-blur px-2 py-1 rounded text-[8px] font-black uppercase text-white/50 tracking-widest border border-white/5">
-             Interactive Exploration Mode {showHeatmap && '• Density View'}
+            Interactive Exploration Mode {showHeatmap && '• Density View'}
           </div>
         </div>
 
         <div className="p-2 bg-[#1b2228] text-center text-[9px] text-[#567] font-black uppercase tracking-[0.2em] border-t border-[#2c3440]">
-           WanderLog Cartography &middot; Drag to pan &middot; Scroll to zoom
+          WanderLog Cartography &middot; Drag to pan &middot; Scroll to zoom
         </div>
       </div>
     </div>

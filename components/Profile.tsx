@@ -2,6 +2,8 @@
 import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { Button } from './Button';
+import { useAuth } from '../contexts/AuthContext';
+import { deleteUserData } from '../services/storageService';
 
 interface ProfileProps {
   profile: UserProfile;
@@ -19,18 +21,44 @@ const PREDEFINED_TRAVEL_STYLES = [
 ].sort();
 
 export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
+  const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
-  const [editedProfile, setEditedProfile] = useState<UserProfile>({
-    ...profile,
-    customTravelStyles: profile.customTravelStyles || []
-  });
+  const [isDeleting, setIsDeleting] = useState(false);
   const [newBucketItem, setNewBucketItem] = useState('');
   const [styleSearch, setStyleSearch] = useState('');
   const [customStyleInput, setCustomStyleInput] = useState('');
 
+  const [editedProfile, setEditedProfile] = useState<UserProfile>({
+    ...profile,
+    customTravelStyles: profile.customTravelStyles || []
+  });
+
   const handleSave = () => {
     onUpdate(editedProfile);
     setIsEditing(false);
+  };
+
+  const handleLogout = async () => {
+    if (confirm("Log out of WanderLog?")) {
+      await logout();
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = confirm("WARNING: This will permanently delete your travel history and profile data. This action cannot be undone. Are you sure?");
+    if (confirmed && user) {
+      setIsDeleting(true);
+      try {
+        await deleteUserData(user.uid);
+        // After data deletion, we logout. 
+        // Note: Actual Firebase account deletion usually requires re-authentication for security.
+        // For this MVP, we clear the storage and logout.
+        await logout();
+      } catch (e) {
+        alert("Failed to delete account data.");
+        setIsDeleting(false);
+      }
+    }
   };
 
   const toggleStyle = (style: string) => {
@@ -106,35 +134,39 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
             <div className="w-32 h-32 rounded border-4 border-[#1b2228] bg-[#2c3440] flex items-center justify-center text-white text-5xl font-black shadow-2xl">
               {profile.name.charAt(0)}
             </div>
-            <Button variant="secondary" onClick={() => setIsEditing(true)}>
-              Edit Profile
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="secondary" onClick={() => setIsEditing(true)}>
+                Edit Profile
+              </Button>
+              <Button variant="ghost" onClick={handleLogout} className="border border-[#2c3440] hover:bg-red-500/10 hover:text-red-500 transition-all">
+                Logout
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="md:col-span-2 space-y-6">
-               <div>
-                  <h2 className="text-3xl font-black text-white tracking-tight leading-none">{profile.name}</h2>
-                  <p className="text-[#89a] mt-4 leading-relaxed max-w-xl">{profile.bio}</p>
-               </div>
-               
-               <div className="pt-6">
-                  <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-4">Travel Styles</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.travelStyle.length > 0 ? profile.travelStyle.map(style => (
-                      <span key={style} className="bg-[#2c3440] text-white px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-tighter border border-white/5">
-                        {style}
-                      </span>
-                    )) : (
-                      <p className="text-[10px] text-[#567] italic font-black uppercase tracking-widest">No styles selected</p>
-                    )}
-                  </div>
-               </div>
+              <div>
+                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic">{profile.name} <span className="text-[#00e054] font-normal not-italic opacity-30">x</span> Travel Muse</h1>
+              </div>
+
+              <div className="pt-6">
+                <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-4">Travel Styles</h3>
+                <div className="flex flex-wrap gap-2">
+                  {profile.travelStyle.length > 0 ? profile.travelStyle.map(style => (
+                    <span key={style} className="bg-[#2c3440] text-white px-3 py-1 rounded-sm text-[10px] font-black uppercase tracking-tighter border border-white/5">
+                      {style}
+                    </span>
+                  )) : (
+                    <p className="text-[10px] text-[#567] italic font-black uppercase tracking-widest">No styles selected</p>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-6">
-               <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest border-b border-[#2c3440] pb-2">Bucket List</h3>
-               <div className="space-y-3">
+              <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest border-b border-[#2c3440] pb-2">Bucket List</h3>
+              <div className="space-y-3">
                 {profile.bucketList.length > 0 ? profile.bucketList.map((item, idx) => (
                   <div key={idx} className="flex items-center gap-3 group">
                     <i className="fas fa-bookmark text-[#ff8000] text-[10px]"></i>
@@ -143,7 +175,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
                 )) : (
                   <p className="text-[10px] text-[#567] italic font-black uppercase tracking-widest">No goals set yet</p>
                 )}
-               </div>
+              </div>
             </div>
           </div>
         </div>
@@ -156,14 +188,14 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
       <div className="flex justify-between items-center border-b border-[#2c3440] pb-4">
         <h2 className="text-lg font-black text-white tracking-widest uppercase">Profile Settings</h2>
         <button onClick={() => setIsEditing(false)} className="text-[#567] hover:text-white transition-colors">
-           <i className="fas fa-times text-xl"></i>
+          <i className="fas fa-times text-xl"></i>
         </button>
       </div>
 
       <div className="space-y-6">
         <div className="space-y-2">
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Display Name</label>
-          <input 
+          <input
             type="text"
             value={editedProfile.name}
             onChange={(e) => setEditedProfile({ ...editedProfile, name: e.target.value })}
@@ -172,7 +204,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
         </div>
         <div className="space-y-2">
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Biography</label>
-          <textarea 
+          <textarea
             rows={3}
             value={editedProfile.bio}
             onChange={(e) => setEditedProfile({ ...editedProfile, bio: e.target.value })}
@@ -193,7 +225,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
               <span className="text-[9px] font-bold text-[#456]">{(editedProfile.customTravelStyles || []).length}/5</span>
             </div>
             <div className="flex gap-2">
-              <input 
+              <input
                 type="text"
                 value={customStyleInput}
                 onChange={(e) => setCustomStyleInput(e.target.value)}
@@ -201,9 +233,9 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
                 className="flex-grow bg-[#2c3440] px-3 py-2 rounded-sm text-[11px] font-bold text-white outline-none focus:ring-1 focus:ring-[#456]"
                 disabled={(editedProfile.customTravelStyles || []).length >= 5}
               />
-              <Button 
-                variant="secondary" 
-                onClick={addCustomStyle} 
+              <Button
+                variant="secondary"
+                onClick={addCustomStyle}
                 className="!py-1"
                 disabled={!customStyleInput.trim() || (editedProfile.customTravelStyles || []).length >= 5}
               >
@@ -225,18 +257,18 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Predefined Styles ({editedProfile.travelStyle.length})</label>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={clearStyles}
                 className="text-[9px] font-black uppercase text-red-500 hover:text-red-400 transition-colors"
               >
                 Clear All
               </button>
             </div>
-            
+
             <div className="relative group">
               <i className="fas fa-filter absolute left-3 top-1/2 -translate-y-1/2 text-[10px] text-[#567]"></i>
-              <input 
+              <input
                 type="text"
                 placeholder="Search styles..."
                 value={styleSearch}
@@ -251,11 +283,10 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
                   key={style}
                   type="button"
                   onClick={() => toggleStyle(style)}
-                  className={`px-3 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest transition-all ${
-                    editedProfile.travelStyle.includes(style)
-                      ? 'bg-[#00c030] text-white'
-                      : 'bg-[#2c3440] text-[#9ab] hover:text-white'
-                  }`}
+                  className={`px-3 py-1.5 rounded-sm text-[9px] font-black uppercase tracking-widest transition-all ${editedProfile.travelStyle.includes(style)
+                    ? 'bg-[#00c030] text-white'
+                    : 'bg-[#2c3440] text-[#9ab] hover:text-white'
+                    }`}
                 >
                   {style}
                 </button>
@@ -269,7 +300,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
         <div className="space-y-4 pt-4 border-t border-[#2c3440]">
           <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Bucket List Goals</label>
           <div className="flex gap-2">
-            <input 
+            <input
               type="text"
               value={newBucketItem}
               onChange={(e) => setNewBucketItem(e.target.value)}
@@ -291,10 +322,20 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
           </div>
         </div>
 
-        <div className="pt-6">
-           <Button variant="primary" className="w-full !py-3" onClick={handleSave}>
-              SAVE PROFILE
-           </Button>
+        <div className="pt-6 space-y-4">
+          <Button variant="primary" className="w-full !py-3" onClick={handleSave}>
+            SAVE PROFILE
+          </Button>
+
+          <div className="pt-4 border-t border-[#2c3440]">
+            <button
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              className="text-[10px] font-black text-red-500/50 hover:text-red-500 uppercase tracking-widest transition-all w-full text-center py-2"
+            >
+              {isDeleting ? 'DELETING DATA...' : 'PERMANENTLY DELETE ACCOUNT & DATA'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

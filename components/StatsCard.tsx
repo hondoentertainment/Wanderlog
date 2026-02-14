@@ -43,12 +43,12 @@ export const StatsCard: React.FC<StatsCardProps> = ({ locations, profile }) => {
                     scale: 2,
                 });
                 const link = document.createElement('a');
-                link.download = `wanderlog-stats-${Date.now()}.png`;
+                link.download = `travel-muse-stats-${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
             } else {
                 // Fallback: copy stats to clipboard
-                const stats = `🌍 My Travel Stats\n\n${countries.size} Countries\n${states.size} US States\n${locations.length} Trips\n${years.size} Years of Travel\n⭐ ${avgRating} Avg Rating\n\nTracked with WanderLog`;
+                const stats = `🌍 My Travel Stats\n\n${countries.size} Countries\n${states.size} US States\n${locations.length} Trips\n${years.size} Years of Travel\n⭐ ${avgRating} Avg Rating\n\nTracked with Travel Muse`;
                 await navigator.clipboard.writeText(stats);
                 alert('Stats copied to clipboard! (Install html2canvas for image export)');
             }

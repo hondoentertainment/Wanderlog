@@ -1,0 +1,17 @@
+{
+    "name": "Travel Muse",
+    "short_name": "Travel Muse",
+    "description": "AI-powered personal travel journal",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#14181c",
+    "theme_color": "#00e054",
+    "icons": [
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}

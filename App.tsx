@@ -1,39 +1,199 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, TravelMuseInsight, SquadTrip } from './types';
+import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from './types';
 import { loadAppData, saveToCloud } from './services/storageService';
-import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights } from './services/geminiService';
-import { LocationForm } from './components/LocationForm';
-import { Recommendations } from './components/Recommendations';
-import { Button } from './components/Button';
-import { Profile } from './components/Profile';
-import { MapModal } from './components/MapModal';
-import { StarRating } from './components/StarRating';
-import { Dashboard } from './components/Dashboard';
-import { Timeline } from './components/Timeline';
-import { TravelMuse } from './components/TravelMuse';
-import { SquadHub } from './components/SquadHub';
-import { BucketList } from './components/BucketList';
-import { useToast } from './components/Toast';
-import { MobileNav } from './components/MobileNav';
-import { TravelMilestones } from './components/TravelMilestones';
-import { TripComparison } from './components/TripComparison';
-import { StatsCard } from './components/StatsCard';
+import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
-import { Login } from './components/Login';
+import { useToast } from './components/Toast';
+import { Shimmer, DashboardShimmer } from './components/Shimmer';
+
+// Lazy Loaded Components for Code Splitting
+const LocationForm = lazy(() => import('./components/LocationForm').then(m => ({ default: m.LocationForm })));
+const Recommendations = lazy(() => import('./components/Recommendations').then(m => ({ default: m.Recommendations })));
+const Profile = lazy(() => import('./components/Profile').then(m => ({ default: m.Profile })));
+const MapModal = lazy(() => import('./components/MapModal').then(m => ({ default: m.MapModal })));
+const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const Timeline = lazy(() => import('./components/Timeline').then(m => ({ default: m.Timeline })));
+const TravelMuse = lazy(() => import('./components/TravelMuse').then(m => ({ default: m.TravelMuse })));
+const SquadHub = lazy(() => import('./components/SquadHub').then(m => ({ default: m.SquadHub })));
+const BucketList = lazy(() => import('./components/BucketList').then(m => ({ default: m.BucketList })));
+const CollaborativeList = lazy(() => import('./components/CollaborativeList').then(m => ({ default: m.CollaborativeList })));
+const CollaborativeListsOverview = lazy(() => import('./components/CollaborativeList').then(m => ({ default: m.CollaborativeListsOverview })));
+const ShareModal = lazy(() => import('./components/ShareModal').then(m => ({ default: m.ShareModal })));
+const TravelMilestones = lazy(() => import('./components/TravelMilestones').then(m => ({ default: m.TravelMilestones })));
+const TripComparison = lazy(() => import('./components/TripComparison').then(m => ({ default: m.TripComparison })));
+const StatsCard = lazy(() => import('./components/StatsCard').then(m => ({ default: m.StatsCard })));
+const AchievementBadges = lazy(() => import('./components/AchievementBadges').then(m => ({ default: m.AchievementBadges })));
+const AskJules = lazy(() => import('./components/AskJules').then(m => ({ default: m.AskJules })));
+const Login = lazy(() => import('./components/Login').then(m => ({ default: m.Login })));
+const DiscoveryIntelligence = lazy(() => import('./components/DiscoveryIntelligence').then(m => ({ default: m.DiscoveryIntelligence })));
+
+// Static Critical Components
+import { Button } from './components/Button';
+import { StarRating } from './components/StarRating';
+
+const HighlightText: React.FC<{ text: string; highlight: string }> = ({ text, highlight }) => {
+  if (!highlight.trim()) return <span>{text}</span>;
+  try {
+    const escaped = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+    return (
+      <span>
+        {parts.map((part, i) =>
+          regex.test(part) ? (
+            <mark key={i} className="bg-[#00e054]/30 text-white rounded-sm px-0.5">{part}</mark>
+          ) : (
+            part
+          )
+        )}
+      </span>
+    );
+  } catch (e) {
+    return <span>{text}</span>;
+  }
+};
+
+const OmniBox: React.FC<{
+  onLog: (name: string) => void;
+  onSearch: (q: string) => void;
+  onAsk: (q: string) => void;
+  isLoading?: boolean;
+}> = ({ onLog, onSearch, onAsk, isLoading }) => {
+  const [value, setValue] = useState('');
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && value.trim()) {
+      if (value.startsWith('?')) {
+        onAsk(value.substring(1).trim());
+      } else if (value.toLowerCase().startsWith('go ')) {
+        onLog(value.substring(3).trim());
+      } else {
+        onSearch(value.trim());
+      }
+      setValue('');
+    }
+  };
+
+  return (
+    <div className="relative group w-full max-w-2xl mx-auto">
+      <div className="absolute inset-0 bg-[#00e054]/5 blur-xl group-focus-within:bg-[#00e054]/10 transition-all rounded-full" />
+      <div className={`relative flex items-center bg-[#1b2228]/80 backdrop-blur-md border border-[#2c3440] rounded-full px-6 py-4 focus-within:border-[#00e054]/50 transition-all shadow-2xl ${isLoading ? 'animate-pulse ring-1 ring-[#00e054]/30' : ''}`}>
+        <i className={`fas ${isLoading ? 'fa-circle-notch fa-spin' : 'fa-search'} text-[#567] mr-4 group-focus-within:text-[#00e054] transition-colors`} />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleKey}
+          placeholder="Search, 'go Paris', or '?Best sushi in Tokyo'"
+          className="bg-transparent border-none outline-none text-white w-full text-lg placeholder-[#567] font-medium"
+        />
+        <div className="flex gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity">
+          <kbd className="px-2 py-1 bg-[#2c3440] text-[10px] text-[#567] rounded uppercase font-black">Enter</kbd>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const Header: React.FC<{
+  user: any;
+  onViewChange: (v: any) => void;
+  currentView: string;
+  onOmniLog: (name: string) => void;
+  onOmniSearch: (q: string) => void;
+  onOmniAsk: (q: string) => void;
+  isOmniLoading?: boolean;
+}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, isOmniLoading }) => {
+  const { logout, signInWithGoogle } = useAuth();
+
+  return (
+    <header className="sticky top-0 z-50 px-6 py-8 flex flex-col items-center gap-8">
+      <div className="w-full max-w-7xl flex justify-between items-center">
+        <button
+          onClick={() => onViewChange('history')}
+          className="flex items-center gap-3 transition-transform hover:scale-105"
+        >
+          <div className="w-10 h-10 bg-[#2c3440] rounded-full flex items-center justify-center border-2 border-[#00e054] shadow-[0_0_15px_rgba(0,224,84,0.3)]">
+            <i className="fas fa-location-arrow text-[#00e054]"></i>
+          </div>
+          <span className="text-white font-black tracking-tighter text-xl uppercase italic">Travel Muse</span>
+        </button>
+
+        <nav className="hidden md:flex bg-[#1b2228]/60 backdrop-blur-lg border border-[#2c3440] rounded-full px-2 py-1.5 shadow-xl">
+          {[
+            { id: 'history', icon: 'fa-globe', label: 'World' },
+            { id: 'savedtrips', icon: 'fa-map', label: 'Trips' },
+            { id: 'squad', icon: 'fa-users', label: 'Squad' },
+            { id: 'bucketlist', icon: 'fa-bookmark', label: 'Bucket' },
+            { id: 'sharedlists', icon: 'fa-share-alt', label: 'Shared' },
+          ].map(item => (
+            <button
+              key={item.id}
+              onClick={() => onViewChange(item.id as any)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${currentView === item.id ? 'bg-[#00e054] text-[#14181c]' : 'text-[#567] hover:text-white'
+                }`}
+            >
+              <i className={`fas ${item.icon}`}></i>
+              {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-4">
+          {user ? (
+            <div className="flex items-center gap-3 group">
+              <button
+                onClick={() => onViewChange('profile')}
+                className="w-10 h-10 rounded-full border-2 border-[#2c3440] group-hover:border-[#00e054] transition-all overflow-hidden"
+              >
+                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
+              </button>
+              <Button variant="ghost" onClick={logout} className="text-[#567] hover:text-white text-[10px] font-black uppercase tracking-widest">Logout</Button>
+            </div>
+          ) : (
+            <button
+              onClick={signInWithGoogle}
+              className="bg-white text-[#14181c] px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#00e054] transition-all"
+            >
+              Join Wanderlog
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="w-full max-w-2xl">
+        <OmniBox onLog={onOmniLog} onSearch={onOmniSearch} onAsk={onOmniAsk} isLoading={isOmniLoading} />
+      </div>
+    </header>
+  );
+};
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  return (
+    <div className="min-h-screen bg-[#14181c] selection:bg-[#00e054]/50">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_top_right,_#1b2228_0%,_#14181c_100%)] pointer-events-none" />
+      {children}
+    </div>
+  );
+};
 
 const App: React.FC = () => {
+  // --- High Performance Initialization (Cloud-Only) ---
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard' | 'jules' | 'badges' | 'sharedlists' | 'collaborative'>('history');
+  const [selectedCollaborativeListId, setSelectedCollaborativeListId] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareModalTrip, setShareModalTrip] = useState<TravelLocation | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
   const [sortOrder, setSortOrder] = useState<'rating' | 'date'>('date');
 
-  const [activeMap, setActiveMap] = useState<{ id: string; name: string; coords: { lat: number; lng: number; zoom?: number } } | null>(null);
+  const [activeMap, setActiveMap] = useState<{ name: string; coords: { lat: number; lng: number; zoom?: number } } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState<string | null>(null);
   const [loadingItinerary, setLoadingItinerary] = useState<string | null>(null);
   const [loadingDNA, setLoadingDNA] = useState(false);
@@ -44,16 +204,18 @@ const App: React.FC = () => {
 
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [proactiveAIResults, setProactiveAIResults] = useState<AIRecommendation[]>([]);
 
-  // Data Loading - MUST be declared before any conditional returns
+  // Perceptual Speed Optimization
   const [loadingData, setLoadingData] = useState(true);
 
   // Auth State
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
 
-  // Initial Data Fetch - MUST be before any conditional returns
   useEffect(() => {
+    let mounted = true;
     const fetchData = async () => {
       if (!user) {
         setLoadingData(false);
@@ -61,164 +223,91 @@ const App: React.FC = () => {
       }
       try {
         const data = await loadAppData(user.uid);
-        setLocations(data.locations);
-        setProfile(data.profile);
-        setSavedRecommendations(data.savedRecommendations);
-        setSquadTrips(data.squadTrips || []);
+        if (mounted) {
+          const migratedLocations = (data.locations || []).map(l => ({
+            ...l,
+            isVisited: l.isVisited ?? true
+          }));
+          setLocations(migratedLocations);
+          setProfile(data.profile);
+          setSavedRecommendations(data.savedRecommendations || []);
+          setSquadTrips(data.squadTrips || []);
+        }
       } catch (error) {
         console.error("Failed to load data", error);
-        showToast("Failed to sync data", "error");
       } finally {
-        setLoadingData(false);
+        if (mounted) setLoadingData(false);
       }
     };
     fetchData();
+    return () => { mounted = false; };
   }, [user]);
 
-  // Debounced Save to Cloud - MUST be before any conditional returns
+  const unifiedSearchResults = useMemo(() => {
+    const allItems = [
+      ...locations.map(l => ({ ...l, resultType: 'location' as const })),
+      ...squadTrips.map(t => ({ ...t, resultType: 'trip' as const }))
+    ];
+
+    return allItems
+      .filter(item => {
+        const cleanSearch = searchTerm.toLowerCase().trim();
+        const words = cleanSearch.split(' ').filter(w => w.length > 2);
+
+        // 1. Check Local Key Match
+        let isLocalMatch = false;
+        if (cleanSearch) {
+          if (item.resultType === 'location') {
+            const matchesText = item.name.toLowerCase().includes(cleanSearch) ||
+              words.some(w => item.name.toLowerCase().includes(w));
+            const matchesType = filterType === 'all' || item.type === filterType;
+            const matchesRating = item.rating >= filterMinRating;
+            isLocalMatch = matchesText && matchesType && matchesRating;
+          } else {
+            isLocalMatch = (item.name?.toLowerCase().includes(cleanSearch) || false) ||
+              (item.destination?.toLowerCase().includes(cleanSearch) || false) ||
+              (item.items?.some(act => act.toLowerCase().includes(cleanSearch)) || false) ||
+              words.some(w => (item.name?.toLowerCase().includes(w) || false) || (item.destination?.toLowerCase().includes(w) || false));
+          }
+        } else {
+          isLocalMatch = true; // Show all if no search term
+        }
+
+        // 2. Check Semantic Match (if active)
+        const isSemanticMatch = semanticResultIds?.includes(item.id) || false;
+
+        // Union: Show if either found it
+        return isLocalMatch || isSemanticMatch;
+      })
+      .sort((a, b) => {
+        const aDate = a.resultType === 'location' ? a.dateVisited : a.createdAt;
+        const bDate = b.resultType === 'location' ? b.dateVisited : b.createdAt;
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      });
+  }, [locations, squadTrips, searchTerm, filterType, filterMinRating, sortOrder, semanticResultIds]);
+
   useEffect(() => {
     if (!profile || !user || loadingData) return;
-
     const timer = setTimeout(() => {
-      // console.log("Auto-saving to cloud...");
       saveToCloud(user.uid, { locations, profile, savedRecommendations, squadTrips });
-    }, 2000); // 2 second debounce
-
+    }, 2000);
     return () => clearTimeout(timer);
   }, [locations, profile, savedRecommendations, squadTrips, user, loadingData]);
 
-  // NOW we can have conditional returns - after ALL hooks are declared
   if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
-  if (!user) return <Login />;
-
-  if (loadingData) {
-    return (
-      <div className="min-h-screen bg-[#14181c] flex items-center justify-center">
-        <div className="text-center">
-          <i className="fas fa-cloud-arrow-down fa-bounce text-3xl text-[#00e054] mb-4"></i>
-          <p className="text-[#567] text-xs font-bold uppercase tracking-widest">Syncing with Jules...</p>
-        </div>
-      </div>
-    );
-  }
 
   const handleAddLocation = (newLoc: Omit<TravelLocation, 'id'>) => {
-    const location: TravelLocation = { ...newLoc, id: crypto.randomUUID() };
+    const location: TravelLocation = { ...newLoc, id: crypto.randomUUID(), isVisited: true };
     setLocations(prev => [location, ...prev]);
     setCurrentView('history');
-    showToast(`${newLoc.name} added to your travel diary! 🎉`, 'success');
+    showToast(`${newLoc.name} added! 🎉`, 'success');
+    handleRefreshMuse(); // Proactively update insights
   };
 
   const handleDeleteLocation = (id: string) => {
-    if (window.confirm("Are you sure?")) {
+    if (window.confirm("Delete this memory?")) {
       setLocations(prev => prev.filter(l => l.id !== id));
-    }
-  };
-
-  const handleSemanticSearch = async () => {
-    if (!semanticSearchQuery.trim()) {
-      setSemanticResultIds(null);
-      return;
-    }
-    setIsSearchingAI(true);
-    try {
-      const ids = await performSemanticSearch(semanticSearchQuery, locations);
-      setSemanticResultIds(ids);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSearchingAI(false);
-    }
-  };
-
-  const handleExportItinerary = (rec: SavedRecommendation) => {
-    if (!rec.itinerary) return;
-    const icsContent = exportItineraryToICS(rec.name, rec.itinerary);
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
-    const link = document.createElement('a');
-    link.href = window.URL.createObjectURL(blob);
-    link.setAttribute('download', `${rec.name}_itinerary.ics`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleRefreshDNA = async () => {
-    if (!profile || locations.length === 0) return;
-    setLoadingDNA(true);
-    try {
-      const dna = await generateTravelDNA(locations, profile);
-      setProfile({ ...profile, dna });
-    } catch (e) {
-      console.error("DNA Refresh failed", e);
-    } finally {
-      setLoadingDNA(false);
-    }
-  };
-
-  const handleRefreshMuse = async () => {
-    if (!profile || locations.length === 0) return;
-    setIsLoadingMuse(true);
-
-    let currentCoords: { latitude: number; longitude: number } | undefined;
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
-      });
-      currentCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-    } catch (e) { }
-
-    try {
-      const insights = await getTravelMuseInsights(locations, profile, currentCoords);
-      setMuseInsights(insights);
-    } catch (e) {
-      console.error("Muse refresh failed", e);
-    } finally {
-      setIsLoadingMuse(false);
-    }
-  };
-
-  const handleCreateSquad = (trip: SquadTrip) => {
-    setSquadTrips([...squadTrips, trip]);
-  };
-
-  const handleJoinSquad = (code: string) => {
-    try {
-      const decoded = JSON.parse(atob(code));
-      if (decoded.name && decoded.destination) {
-        const newTrip: SquadTrip = {
-          ...decoded,
-          id: crypto.randomUUID(),
-          joinCode: code,
-          createdAt: new Date().toISOString(),
-          items: []
-        };
-        setSquadTrips([...squadTrips, newTrip]);
-      }
-    } catch (e) {
-      alert("Invalid Squad Join Code.");
-    }
-  };
-
-  const handleUpdateSquad = (updated: SquadTrip) => {
-    setSquadTrips(squadTrips.map(s => s.id === updated.id ? updated : s));
-  };
-
-  const handleDeleteSquad = (id: string) => {
-    if (confirm("Delete this Squad Trip?")) {
-      setSquadTrips(squadTrips.filter(s => s.id !== id));
-    }
-  };
-
-  const handleShareLocation = async (loc: TravelLocation) => {
-    const text = `Trip to ${loc.name}: ${loc.rating}/5 stars! ✅ Pros: ${loc.likes.join(', ')} #WanderLog`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `Trip to ${loc.name}`, text, url: window.location.href });
-      } catch (err) { }
-    } else {
-      await navigator.clipboard.writeText(text);
-      alert('Summary copied!');
+      if (selectedLocationId === id) setSelectedLocationId(null);
     }
   };
 
@@ -227,306 +316,435 @@ const App: React.FC = () => {
   const handleAddToBucketList = (item: string) => {
     if (profile && !profile.bucketList.includes(item)) {
       setProfile({ ...profile, bucketList: [...profile.bucketList, item] });
-      showToast(`${item} added to your bucket list! ✨`, 'success');
+      showToast(`${item} added to bucket list!`, 'success');
     }
   };
 
-  const handleRemoveFromBucketList = (item: string) => {
-    if (profile) {
-      setProfile({ ...profile, bucketList: profile.bucketList.filter(i => i !== item) });
-      showToast(`${item} removed from bucket list`, 'info');
-    }
+  const handleRefreshDNA = async () => {
+    if (!profile || locations.length === 0) return;
+    setLoadingDNA(true);
+    try {
+      const dna = await generateTravelDNA(locations, profile);
+      setProfile({ ...profile, dna });
+    } catch (e) { } finally { setLoadingDNA(false); }
+  };
+
+  const handleRefreshMuse = async () => {
+    if (!profile || locations.length === 0) return;
+    setIsLoadingMuse(true);
+    try {
+      const insights = await getTravelMuseInsights(locations, profile);
+      setMuseInsights(insights);
+    } catch (e) { } finally { setIsLoadingMuse(false); }
   };
 
   const handleSaveRecommendation = async (rec: AIRecommendation) => {
-    if (savedRecommendations.some(s => s.name === rec.name)) return;
-    const newId = crypto.randomUUID();
-    const newSaved: SavedRecommendation = { ...rec, id: newId, dateSaved: new Date().toISOString() };
-    setSavedRecommendations(prev => [newSaved, ...prev]);
-    try {
-      const details = await getLocationDetails(rec.name, rec.type);
-      setSavedRecommendations(prev => prev.map(item => item.id === newId ? { ...item, ...details } : item));
-    } catch (e) { }
-  };
-
-  const handleGenerateItinerary = async (rec: SavedRecommendation) => {
-    if (loadingItinerary) return;
-    setLoadingItinerary(rec.id);
-    try {
-      const itinerary = await generateItinerary(rec.name, rec.type, rec.description || '', rec.attractions || []);
-      setSavedRecommendations(prev => prev.map(item => item.id === rec.id ? { ...item, itinerary } : item));
-    } catch (e) {
-      alert("AI planning failed.");
-    } finally {
-      setLoadingItinerary(null);
+    if (locations.some(l => l.name === rec.name && !l.isVisited)) {
+      showToast("Already in your wishlist!", 'info');
+      return;
     }
+    const newLoc: TravelLocation = {
+      id: crypto.randomUUID(),
+      name: rec.name,
+      type: rec.type,
+      rating: 0,
+      likes: [],
+      dislikes: [],
+      dateVisited: new Date().toISOString(),
+      isVisited: false,
+      wishlistData: { discoveryRationale: rec.reason }
+    };
+    setLocations(prev => [newLoc, ...prev]);
+    showToast(`${rec.name} saved for later! ✨`, 'success');
   };
 
-  const handleViewMap = async (loc: TravelLocation) => {
-    if (loc.coordinates) {
-      setActiveMap({ id: loc.id, name: loc.name, coords: loc.coordinates });
+  const handleOmniLog = (name: string) => {
+    setCurrentView('add');
+    showToast(`Logging: ${name}`, 'info');
+  };
+
+  const handleOmniSearch = async (q: string) => {
+    setSemanticResultIds(null); // Clear previous semantic hits for a fresh local-first result
+    const query = q.toLowerCase();
+    let cleanSearch = q;
+
+    // Intent Detection: Ratings (e.g., "5 stars", "rating > 4")
+    const ratingMatch = query.match(/(\d)\s*stars?/) || query.match(/rating\s*>\s*(\d)/);
+    if (ratingMatch) {
+      setFilterMinRating(parseInt(ratingMatch[1]));
+      cleanSearch = cleanSearch.replace(ratingMatch[0], '').trim();
     } else {
-      setIsGeocoding(loc.id);
+      setFilterMinRating(0); // Reset if not explicitly requested
+    }
+
+    // Intent Detection: Types (City, Country, etc.)
+    if (query.includes('city') || query.includes('cities')) {
+      setFilterType(LocationType.CITY);
+      cleanSearch = cleanSearch.replace(/cities|city/gi, '').trim();
+    } else if (query.includes('country') || query.includes('countries')) {
+      setFilterType(LocationType.COUNTRY);
+      cleanSearch = cleanSearch.replace(/countries|country/gi, '').trim();
+    } else if (query.includes('landmark') || query.includes('landmarks')) {
+      setFilterType(LocationType.LANDMARK);
+      cleanSearch = cleanSearch.replace(/landmarks|landmark/gi, '').trim();
+    } else {
+      setFilterType('all');
+    }
+
+    setSearchTerm(cleanSearch);
+    setCurrentView('history');
+    setProactiveAIResults([]);
+
+    // Automatically trigger semantic search for deep discovery
+    if (cleanSearch.length > 3) {
+      setIsSearchingAI(true);
       try {
-        const coords = await geocodeLocation(loc.name, loc.type);
-        if (coords) {
-          setLocations(prev => prev.map(l => l.id === loc.id ? { ...l, coordinates: coords } : l));
-          setActiveMap({ id: loc.id, name: loc.name, coords });
+        const ids = await performSemanticSearch(cleanSearch, locations, squadTrips);
+        setSemanticResultIds(ids);
+
+        if (ids.length < 2) {
+          const recs = await getAIRecommendations(locations, profile!, undefined, 'cultural');
+          setProactiveAIResults(recs);
         }
-      } catch (e) { } finally { setIsGeocoding(null); }
+      } catch (e) {
+        console.error("Semantic search failed", e);
+      } finally {
+        setIsSearchingAI(false);
+      }
     }
   };
 
-  const filteredLocations = useMemo(() => {
-    return locations
-      .filter(loc => {
-        if (semanticResultIds) return semanticResultIds.includes(loc.id);
-        const matchesSearch = loc.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesType = filterType === 'all' || loc.type === filterType;
-        const matchesRating = loc.rating >= filterMinRating;
-        return matchesSearch && matchesType && matchesRating;
-      })
-      .sort((a, b) => {
-        if (sortOrder === 'rating') return b.rating - a.rating;
-        return new Date(b.dateVisited).getTime() - new Date(a.dateVisited).getTime();
-      });
-  }, [locations, searchTerm, filterType, filterMinRating, sortOrder, semanticResultIds]);
+  const handleOmniAsk = (q: string) => {
+    setCurrentView('jules');
+  };
 
-  if (!profile) return (
-    <div className="min-h-screen bg-[#14181c] flex items-center justify-center">
-      <div className="text-center">
-        <i className="fas fa-location-arrow text-[#00e054] text-4xl animate-pulse"></i>
-        <p className="text-[#9ab] mt-4 text-sm font-bold uppercase tracking-widest">Loading WanderLog...</p>
-      </div>
-    </div>
-  );
+  const handleViewMap = (loc: TravelLocation) => {
+    setActiveMap({ name: loc.name, coords: loc.coordinates || { lat: 0, lng: 0 } });
+  };
+
+  const handleSemanticSearch = async () => {
+    if (!semanticSearchQuery.trim()) return;
+    setIsSearchingAI(true);
+    try {
+      const ids = await performSemanticSearch(semanticSearchQuery, locations);
+      setSemanticResultIds(ids);
+    } catch (e) { } finally { setIsSearchingAI(false); }
+  };
+
+  if (!profile) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Initializing Profile...</div>;
 
   return (
-    <div className="min-h-screen bg-[#14181c] text-[#9ab] selection:bg-[#00c030] selection:text-white pb-24">
-      {activeMap && (
-        <MapModal
-          name={activeMap.name}
-          coords={activeMap.coords}
-          onClose={() => setActiveMap(null)}
-          onSaveView={(c) => setLocations(prev => prev.map(l => l.id === activeMap.id ? { ...l, coordinates: c } : l))}
-          allLocations={locations}
-        />
-      )}
+    <Layout>
+      <Header
+        user={user}
+        onViewChange={setCurrentView}
+        currentView={currentView}
+        onOmniLog={handleOmniLog}
+        onOmniSearch={handleOmniSearch}
+        onOmniAsk={handleOmniAsk}
+        isOmniLoading={isSearchingAI}
+      />
 
-      <header className="bg-[#1b2228] sticky top-0 z-40 border-b border-[#2c3440]">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <h1 className="text-white font-black tracking-tighter text-2xl flex items-center gap-2 cursor-pointer" onClick={() => setCurrentView('history')}>
-              <i className="fas fa-location-arrow text-[#00e054]"></i> TRAVEL MUSE
-            </h1>
-            <nav className="hidden md:flex items-center gap-6 text-[11px] font-bold uppercase tracking-wider">
-              {[
-                { id: 'history', label: 'History', icon: 'fa-clock-rotate-left' },
-                { id: 'savedtrips', label: 'Saved', icon: 'fa-bookmark' },
-                { id: 'bucketlist', label: 'Bucket List', icon: 'fa-list-check' },
-                { id: 'compare', label: 'Compare', icon: 'fa-scale-balanced' },
-                { id: 'statscard', label: 'Stats Card', icon: 'fa-id-card' },
-                { id: 'squad', label: 'Squads', icon: 'fa-user-group' },
-              ].map(item => (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentView(item.id as any)}
-                  className={`flex items-center gap-2 transition-all hover:text-white ${currentView === item.id ? 'text-white border-b-2 border-[#00e054] pb-1' : 'text-[#9ab]'}`}
-                >
-                  <i className={`fas ${item.icon} text-xs`}></i>
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="primary" onClick={() => setCurrentView('add')}><i className="fas fa-plus"></i> LOG</Button>
+      <main className="max-w-7xl mx-auto px-6 pb-24 relative z-10">
+        {/* Local/Ghost Mode Banner Removed */}
 
-            {/* Profile trigger in upper right corner */}
-            <button
-              onClick={() => setCurrentView('profile')}
-              className={`flex items-center gap-3 px-2 py-1.5 rounded-sm hover:bg-[#2c3440] transition-all group ${currentView === 'profile' ? 'bg-[#2c3440]' : ''}`}
-            >
-              <div className="hidden sm:block text-right">
-                <span className="block text-[10px] font-black text-white uppercase tracking-tighter leading-none">{user.displayName || profile.name}</span>
-                <span className="block text-[8px] font-bold text-[#567] uppercase tracking-widest mt-0.5 group-hover:text-[#9ab] transition-colors">View Profile</span>
+        <Suspense fallback={<DashboardShimmer />}>
+          {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
+          {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
+          {currentView === 'squad' && (
+            <SquadHub
+              trips={squadTrips}
+              userId={user?.uid}
+              userName={user?.displayName || 'Anonymous'}
+              userAvatar={user?.photoURL}
+              onCreate={(t) => setSquadTrips([...squadTrips, t])}
+              onJoin={() => { }}
+              onUpdate={() => { }}
+              onDelete={() => { }}
+            />
+          )}
+          {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={(i) => setProfile({ ...profile, bucketList: profile.bucketList.filter(x => x !== i) })} />}
+          {currentView === 'sharedlists' && user && (
+            selectedCollaborativeListId ? (
+              <CollaborativeList
+                listId={selectedCollaborativeListId}
+                userId={user.uid}
+                userName={user.displayName || 'Anonymous'}
+                friends={[]}
+                onBack={() => setSelectedCollaborativeListId(null)}
+              />
+            ) : (
+              <CollaborativeListsOverview
+                userId={user.uid}
+                onSelectList={(id) => setSelectedCollaborativeListId(id)}
+                onCreateList={() => setCurrentView('add')}
+              />
+            )
+          )}
+          {currentView === 'jules' && <AskJules locations={locations} profile={profile!} />}
+          {currentView === 'badges' && <AchievementBadges locations={locations} />}
+
+          {currentView === 'history' && (
+            <div className="space-y-12">
+              <Dashboard locations={locations} dna={profile.dna || generateTravelDNA(locations, profile)} onRefreshDNA={handleRefreshDNA} />
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div>
+                  <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Your World</h2>
+                  <p className="text-[#567] text-sm font-bold uppercase tracking-widest mt-1">{locations.length} Memories Logged</p>
+                </div>
+
+                <div className="flex items-center gap-4 bg-[#1b2228]/40 p-2 rounded-full border border-[#2c3440]">
+                  <select value={filterType} onChange={(e) => setFilterType(e.target.value as any)} className="bg-transparent text-[10px] font-black uppercase text-[#def] outline-none px-4">
+                    <option value="all">Everywhere</option>
+                    <option value={LocationType.CITY}>Cities</option>
+                    <option value={LocationType.STATE}>States</option>
+                    <option value={LocationType.COUNTRY}>Countries</option>
+                    <option value={LocationType.LANDMARK}>Landmarks</option>
+                  </select>
+                  <div className="w-px h-6 bg-[#2c3440] mx-2" />
+                  <div className="flex bg-[#2c3440] rounded-full p-1 border border-[#2c3440]">
+                    <input
+                      type="text"
+                      placeholder="Smart Search..."
+                      value={searchTerm}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value);
+                        if (!e.target.value) setSemanticResultIds(null);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleOmniSearch(searchTerm)}
+                      className="bg-transparent border-none outline-none text-[10px] font-bold text-white px-3 w-32"
+                    />
+                    <Button variant="ghost" className="!p-1 !text-[10px]" onClick={() => handleOmniSearch(searchTerm)} isLoading={isSearchingAI}><i className="fas fa-brain"></i></Button>
+                  </div>
+                </div>
               </div>
-              <div className="w-8 h-8 rounded-full border border-[#456] bg-[#2c3440] flex items-center justify-center text-[11px] font-black text-white overflow-hidden group-hover:border-[#00e054] transition-all relative">
-                {user.photoURL ? (
-                  <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  (user.displayName || profile.name).charAt(0)
-                )}
-              </div>
-            </button>
-          </div>
-        </div>
-      </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
-        {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
-        {currentView === 'squad' && <SquadHub trips={squadTrips} onCreate={handleCreateSquad} onJoin={handleJoinSquad} onUpdate={handleUpdateSquad} onDelete={handleDeleteSquad} />}
-        {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={handleRemoveFromBucketList} />}
-        {currentView === 'compare' && <TripComparison locations={locations} />}
-        {currentView === 'statscard' && <StatsCard locations={locations} profile={profile} />}
+              {semanticResultIds && unifiedSearchResults.length > 0 && (
+                <div className="bg-[#00e054]/5 border border-[#00e054]/20 p-6 rounded-2xl flex items-center gap-4 animate-in fade-in slide-in-from-top-4">
+                  <div className="w-12 h-12 rounded-full bg-[#00e054] flex items-center justify-center text-black shrink-0">
+                    <i className="fas fa-brain"></i>
+                  </div>
+                  <div>
+                    <h4 className="text-[#00e054] font-black uppercase tracking-widest text-xs mb-1">Jules' Spotlight</h4>
+                    <p className="text-[#def] text-sm font-medium">I've discovered these memories and trips based on the <span className="text-[#00e054]">conceptual vibe</span> of your search for "{searchTerm}".</p>
+                  </div>
+                </div>
+              )}
 
-        {currentView === 'savedtrips' && (
-          <div className="space-y-8">
-            <div className="flex items-center justify-between border-b border-[#2c3440] pb-3">
-              <h2 className="text-base font-bold text-white flex items-center gap-3">
-                <i className="fas fa-bookmark text-[#ff8000]"></i> Saved Trips
-              </h2>
-              <span className="text-xs font-medium text-[#567]">{savedRecommendations.length} saved</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {savedRecommendations.length > 0 ? savedRecommendations.map(rec => (
-                <div key={rec.id} className="bg-[#1b2228] p-6 rounded border border-[#2c3440] hover:bg-[#202830] transition-colors group relative flex flex-col h-full">
-                  <h3 className="text-xl font-black text-white leading-tight">{rec.name}</h3>
-                  <p className="text-[#9ab] text-[13px] italic mt-2 border-l-2 border-[#2c3440] pl-3">"{rec.reason}"</p>
+              {unifiedSearchResults.length === 0 ? (
+                <div className="space-y-12">
+                  <div className="py-24 text-center border-2 border-dashed border-[#2c3440] rounded-3xl">
+                    <i className="fas fa-ghost text-4xl text-[#2c3440] mb-4"></i>
+                    <p className="text-[#567] font-black uppercase tracking-widest text-xs">No results found for "{searchTerm}"</p>
+                  </div>
 
-                  <div className="mt-4 flex-grow">
-                    {!rec.itinerary ? (
-                      <Button variant="ghost" className="w-full !px-0" onClick={() => handleGenerateItinerary(rec)} isLoading={loadingItinerary === rec.id}>
-                        <i className="fas fa-wand-magic-sparkles text-[#ff8000]"></i> PLAN 3-DAY ITINERARY
-                      </Button>
-                    ) : (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-black uppercase text-[#ff8000]">3-Day Planner</span>
-                          <Button variant="ghost" className="!p-1 !text-[8px]" onClick={() => handleExportItinerary(rec)}>
-                            <i className="fas fa-calendar-plus"></i> EXPORT .ICS
-                          </Button>
+                  {proactiveAIResults.length > 0 && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-[#00e054] flex items-center justify-center text-black text-xs">
+                          <i className="fas fa-robot"></i>
                         </div>
-                        {rec.itinerary.map(day => (
-                          <div key={day.day} className="bg-[#2c3440]/30 p-2 rounded-sm text-[10px] text-[#9ab]">
-                            <span className="font-black text-[#40bcf4]">Day {day.day}:</span> {day.title}
+                        <h3 className="text-white font-black uppercase tracking-widest text-sm">Jules' Recommendations</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                        {proactiveAIResults.map((rec, idx) => (
+                          <div key={idx} className="bg-[#1b2228]/40 border border-[#00e054]/20 p-8 rounded-2xl hover:border-[#00e054]/50 transition-all group">
+                            <span className="text-[10px] font-black text-[#00e054] uppercase tracking-widest mb-2 block">{rec.type}</span>
+                            <h4 className="text-xl font-black text-white mb-4 group-hover:text-[#00e054] transition-colors">{rec.name}</h4>
+                            <p className="text-[#9ab] text-xs leading-relaxed mb-6 italic">"{rec.reason}"</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="w-full bg-[#00e054]/10 hover:bg-[#00e054] hover:text-black border border-[#00e054]/20"
+                              onClick={() => handleSaveRecommendation(rec)}
+                            >
+                              Add to Bucket List
+                            </Button>
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )) : (
-                <div className="col-span-full py-16 text-center border border-dashed border-[#2c3440] rounded-lg">
-                  <i className="fas fa-compass text-[#2c3440] text-5xl mb-4"></i>
-                  <p className="text-[#567] text-sm font-semibold mb-2">No saved trips yet</p>
-                  <p className="text-[#456] text-xs">Save AI recommendations from the History tab to plan your adventures!</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {unifiedSearchResults.map((item) => (
+                    item.resultType === 'location' ? (
+                      item.isVisited ? (
+                        <div key={item.id} className="group bg-[#1b2228]/60 backdrop-blur-sm border border-[#2c3440] rounded-2xl overflow-hidden hover:border-[#00e054]/40 transition-all duration-500">
+                          <div className="p-8">
+                            <div className="flex justify-between items-start mb-6">
+                              <div>
+                                <span className="text-[10px] font-black text-[#00e054] uppercase tracking-[0.2em] mb-2 block">{item.type}</span>
+                                <h3 className="text-2xl font-black text-white tracking-tight group-hover:text-[#00e054] transition-colors line-clamp-1">
+                                  <HighlightText text={item.name} highlight={searchTerm} />
+                                </h3>
+                              </div>
+                              <div className="bg-[#2c3440] w-12 h-12 rounded-xl flex items-center justify-center text-xl">
+                                {item.type === LocationType.COUNTRY ? '🌍' : item.type === LocationType.STATE ? '📍' : '🏙️'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 mb-8">
+                              <StarRating rating={item.rating} size="sm" />
+                              <span className="text-[10px] font-black text-[#567] uppercase tracking-widest">{new Date(item.dateVisited).getFullYear()}</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button variant="ghost" size="sm" className="bg-[#2c3440]/50 hover:bg-[#00e054] hover:text-[#14181c]" onClick={() => handleViewMap(item)}>Map</Button>
+                              <Button variant="ghost" size="sm" className="bg-[#2c3440]/50 hover:bg-[#40bcf4] hover:text-[#14181c]" onClick={() => { setSelectedLocationId(item.id); setCurrentView('savedtrips'); }}>Detail</Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="bg-[#2c3440]/50 hover:bg-white hover:text-[#14181c]"
+                                onClick={() => {
+                                  setShareModalTrip(item);
+                                  setShareModalOpen(true);
+                                }}
+                              >
+                                <i className="fas fa-share-alt" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={item.id} className="group bg-[#141d26] backdrop-blur-sm border border-[#40bcf4]/20 rounded-2xl overflow-hidden hover:border-[#40bcf4]/50 transition-all duration-500 relative">
+                          <div className="absolute top-4 right-4 bg-[#40bcf4]/10 text-[#40bcf4] text-[8px] font-black uppercase px-2 py-1 rounded-full border border-[#40bcf4]/20 italic">Wishlist</div>
+                          <div className="p-8">
+                            <div className="flex justify-between items-start mb-6">
+                              <div>
+                                <span className="text-[10px] font-black text-[#40bcf4] uppercase tracking-[0.2em] mb-2 block">{item.type}</span>
+                                <h3 className="text-2xl font-black text-white tracking-tight group-hover:text-[#40bcf4] transition-colors line-clamp-1">
+                                  <HighlightText text={item.name} highlight={searchTerm} />
+                                </h3>
+                              </div>
+                              <div className="bg-[#2c3440] w-12 h-12 rounded-xl flex items-center justify-center text-xl">✨</div>
+                            </div>
+                            <div className="mb-8">
+                              <p className="text-[#9ab] text-xs line-clamp-2 leading-relaxed">
+                                {item.wishlistData?.discoveryRationale || "Matches your travel DNA. Explore the vibes and plan your next story."}
+                              </p>
+                            </div>
+                            <div className="flex flex-col gap-2">
+                              <Button variant="ghost" size="sm" className="w-full bg-[#40bcf4]/10 hover:bg-[#40bcf4] hover:text-[#14181c] border border-[#40bcf4]/20" onClick={() => { setSelectedLocationId(item.id); setCurrentView('savedtrips'); }}>
+                                Why You'll Like This
+                              </Button>
+                              <div className="flex gap-2">
+                                <Button variant="ghost" size="sm" className="flex-1 bg-[#2c3440]/50 hover:bg-white hover:text-black">Map</Button>
+                                <Button variant="ghost" size="sm" className="flex-1 bg-[#2c3440]/50 hover:bg-[#00e054] hover:text-black" onClick={() => handleAddLocation({ ...item, isVisited: true })}>Log Visit</Button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <div key={item.id} className="group bg-[#1b2228]/60 backdrop-blur-sm border border-[#40bcf4]/20 rounded-2xl overflow-hidden hover:border-[#40bcf4]/50 transition-all duration-500 relative">
+                        <div className="absolute top-4 right-4 bg-[#40bcf4]/20 text-[#40bcf4] text-[8px] font-black uppercase px-2 py-1 rounded-full border border-[#40bcf4]/30">Squad Trip</div>
+                        <div className="p-8">
+                          <div className="flex justify-between items-start mb-6">
+                            <div>
+                              <span className="text-[10px] font-black text-[#40bcf4] uppercase tracking-[0.2em] mb-2 block">{item.destination}</span>
+                              <h3 className="text-2xl font-black text-white tracking-tight group-hover:text-[#40bcf4] transition-colors line-clamp-1">
+                                <HighlightText text={item.name} highlight={searchTerm} />
+                              </h3>
+                            </div>
+                            <div className="bg-[#2c3440] w-12 h-12 rounded-xl flex items-center justify-center text-xl">👥</div>
+                          </div>
+                          <div className="flex -space-x-2 mb-8">
+                            {(item.members || []).slice(0, 5).map((m, i) => (
+                              <div key={i} title={m?.name || 'Explorer'} className="w-8 h-8 rounded-full bg-[#2c3440] border-2 border-[#1b2228] flex items-center justify-center text-[10px] font-black text-white uppercase overflow-hidden">
+                                {m?.name?.charAt(0) || '?'}
+                              </div>
+                            ))}
+                            {(item.members || []).length > 5 && (
+                              <div className="w-8 h-8 rounded-full bg-[#1b2228] border-2 border-[#2c3440] flex items-center justify-center text-[8px] font-black text-[#567]">
+                                +{item.members.length - 5}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button variant="ghost" size="sm" className="w-full bg-[#40bcf4]/10 hover:bg-[#40bcf4] hover:text-[#14181c] border border-[#40bcf4]/20" onClick={() => setCurrentView('squad')}>
+                              View Board
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ))}
                 </div>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {currentView === 'history' && (
-          <div className="space-y-8">
-            <Dashboard locations={locations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} isDNAlOading={loadingDNA} />
-
-            <TravelMilestones locations={locations} />
-
-            <section className="bg-[#1b2228] p-6 rounded border border-[#2c3440]">
-              <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">
-                <i className="fas fa-robot text-[#00e054] mr-2"></i>
-                Jules · AI Travel Companion
-              </h3>
-              <TravelMuse insights={museInsights} isLoading={isLoadingMuse} onRefresh={handleRefreshMuse} />
-            </section>
-
-            <section className="bg-[#1b2228] p-6 rounded border border-[#2c3440]">
-              <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-6">Chronological History</h3>
-              <Timeline locations={locations} onTravel={handleViewMap} />
-            </section>
-
-            <Recommendations visitedLocations={locations} profile={profile} onSave={handleSaveRecommendation} savedNames={savedRecommendations.map(s => s.name)} />
-
-            <section className="space-y-6">
-              <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 border-b border-[#2c3440] pb-2">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest">Diary</h2>
-                  <div className="flex bg-[#2c3440] rounded-sm p-1">
-                    <input
-                      type="text"
-                      placeholder="Semantic Search AI..."
-                      value={semanticSearchQuery}
-                      onChange={(e) => {
-                        setSemanticSearchQuery(e.target.value);
-                        if (!e.target.value) setSemanticResultIds(null);
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSemanticSearch()}
-                      className="bg-transparent border-none outline-none text-[11px] font-bold text-white px-2 w-48"
-                    />
-                    <Button variant="ghost" className="!p-1 !text-[10px]" onClick={handleSemanticSearch} isLoading={isSearchingAI}><i className="fas fa-brain"></i></Button>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4">
-                  <input type="text" placeholder="Filter name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-[#2c3440] px-4 py-1.5 rounded-sm text-[11px] font-bold text-white outline-none w-40" />
-                  <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} className="bg-[#1b2228] text-[10px] font-black uppercase text-[#9ab] outline-none">
-                    <option value="date">Sort: Recent</option>
-                    <option value="rating">Sort: Highest Rated</option>
-                  </select>
-                </div>
+          {currentView === 'savedtrips' && (
+            <div className="space-y-12">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Your Stories</h2>
+                {selectedLocationId && <Button variant="ghost" onClick={() => setSelectedLocationId(null)} className="text-[#567] hover:text-white">Close</Button>}
               </div>
 
-              <div className="divide-y divide-[#2c3440]">
-                {filteredLocations.length > 0 ? filteredLocations.map((loc) => (
-                  <div key={loc.id} className="group flex items-center justify-between py-4 px-3 hover:bg-[#1b2228] transition-colors rounded-lg">
-                    <div className="flex items-center gap-5">
-                      <div className="w-16 text-center">
-                        <div className="text-[10px] font-bold text-[#567] uppercase">
-                          {new Date(loc.dateVisited).toLocaleDateString('en-US', { month: 'short' })}
-                        </div>
-                        <div className="text-lg font-black text-white">
-                          {new Date(loc.dateVisited).getFullYear()}
-                        </div>
-                        {loc.dateEndVisited && (
-                          <div className="text-[9px] font-bold text-[#00e054]">
-                            {Math.ceil((new Date(loc.dateEndVisited).getTime() - new Date(loc.dateVisited).getTime()) / (1000 * 60 * 60 * 24)) + 1} days
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="text-white text-lg font-bold tracking-tight leading-none group-hover:text-[#40bcf4] transition-colors cursor-pointer" onClick={() => handleViewMap(loc)}>{loc.name}</h3>
-                        <div className="flex items-center gap-3 mt-1.5">
-                          <StarRating rating={loc.rating} />
-                          <span className="text-[9px] font-bold text-[#567] uppercase">{loc.type}</span>
-                          {loc.companions && loc.companions.length > 0 && (
-                            <div className="flex items-center gap-1.5">
-                              {loc.companions.map(c => (
-                                <span key={c} className="text-[9px] font-bold text-[#9ab] bg-[#2c3440] px-1.5 py-0.5 rounded">
-                                  <i className={`fas ${c === 'solo' ? 'fa-user' : c === 'partner' ? 'fa-heart' : c === 'family' ? 'fa-users' : c === 'friends' ? 'fa-user-group' : 'fa-people-group'} mr-1`}></i>
-                                  {c}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => handleShareLocation(loc)} className="text-[#567] hover:text-[#00e054] p-2"><i className="fas fa-share-alt"></i></button>
-                      <button onClick={() => handleDeleteLocation(loc.id)} className="text-[#567] hover:text-red-500 p-2"><i className="fas fa-trash-alt"></i></button>
-                    </div>
+              {selectedLocationId ? (
+                <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                  {(() => {
+                    const loc = locations.find(l => l.id === selectedLocationId);
+                    if (!loc) return null;
+                    return loc.isVisited ? (
+                      <Timeline location={loc} />
+                    ) : (
+                      <DiscoveryIntelligence
+                        location={loc}
+                        visitedLocations={locations.filter(l => l.isVisited)}
+                        profile={profile!}
+                        onLogVisit={(l) => handleAddLocation({ ...l, isVisited: true })}
+                        onSaveToWishlist={(name) => showToast(`${name} is safe in your wishlist!`, 'success')}
+                      />
+                    );
+                  })()}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    <Recommendations visitedLocations={locations} profile={profile} onSave={handleSaveRecommendation} savedNames={savedRecommendations.map(s => s.name)} />
+                    <TravelMuse insights={museInsights} isLoading={isLoadingMuse} />
                   </div>
-                )) : (
-                  <div className="py-16 text-center">
-                    <i className="fas fa-plane-departure text-[#2c3440] text-5xl mb-4"></i>
-                    <p className="text-[#567] text-sm font-semibold mb-2">No travel logs yet</p>
-                    <p className="text-[#456] text-xs mb-4">Start documenting your adventures!</p>
-                    <Button variant="primary" onClick={() => setCurrentView('add')}>
-                      <i className="fas fa-plus"></i> Log Your First Trip
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </section>
-          </div>
-        )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {locations.slice(0, 6).map(loc => (
+                    <div key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className="cursor-pointer bg-[#1b2228]/40 border border-[#2c3440] p-6 rounded-2xl hover:bg-[#1b2228]/60 transition-all text-center group">
+                      <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
+                      <h4 className="text-white font-black uppercase tracking-widest text-sm mb-1">{loc.name}</h4>
+                      <p className="text-[#567] text-[10px] uppercase font-black tracking-widest">Open Story</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </Suspense>
       </main>
 
-      {/* Mobile Bottom Navigation */}
-      <MobileNav currentView={currentView} onNavigate={(v) => setCurrentView(v as any)} />
-    </div>
+      {activeMap && (
+        <MapModal isOpen={!!activeMap} onClose={() => setActiveMap(null)} locationName={activeMap.name} center={activeMap.coords} />
+      )}
+
+      {/* Share Modal */}
+      {shareModalOpen && shareModalTrip && user && (
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setShareModalTrip(null);
+          }}
+          resource="trip"
+          trip={shareModalTrip}
+          userId={user.uid}
+          userName={user.displayName || 'Anonymous'}
+          userAvatar={user.photoURL}
+          stats={{
+            countries: new Set(locations.filter(l => l.type === LocationType.COUNTRY).map(l => l.name)).size,
+            states: new Set(locations.filter(l => l.type === LocationType.STATE).map(l => l.name)).size,
+          }}
+        />
+      )}
+    </Layout>
   );
 };
 
