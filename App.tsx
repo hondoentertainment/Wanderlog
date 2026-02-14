@@ -715,6 +715,27 @@ const App: React.FC = () => {
                     <TravelMuse insights={museInsights} isLoading={isLoadingMuse} />
                   </div>
                 </div>
+              ) : locations.length === 0 ? (
+                <div className="py-24 text-center border-2 border-dashed border-[#2c3440] rounded-3xl bg-[#1b2228]/20 animate-in fade-in zoom-in duration-500">
+                  <div className="w-20 h-20 bg-[#2c3440] rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i className="fas fa-book-open text-3xl text-[#567]"></i>
+                  </div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-widest mb-2">Your Journey Begins Here</h3>
+                  <p className="text-[#9ab] text-sm font-medium mb-8 max-w-md mx-auto">Start adding visited locations to build your personal travel story and unlock your Travel DNA.</p>
+                  <Button
+                    className="bg-[#00e054] text-black hover:bg-[#00c044] font-bold px-8 py-6 rounded-xl text-lg shadow-[0_0_20px_rgba(0,224,84,0.2)] hover:shadow-[0_0_30px_rgba(0,224,84,0.4)] transition-all"
+                    onClick={() => {
+                      const searchInput = document.querySelector('input[placeholder*="Where to next"]') as HTMLInputElement;
+                      if (searchInput) {
+                        searchInput.focus();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }
+                    }}
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    Log Your First Memory
+                  </Button>
+                </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {locations.slice(0, 6).map(loc => (
