@@ -84,7 +84,7 @@ const OmniBox: React.FC<{
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Where to next? Try 'Paris', or ask 'Best sushi in Tokyo' 🌍"
+          placeholder="Where to next? 🌍"
           className="bg-transparent border-none outline-none text-white w-full text-lg placeholder-[#567] font-medium"
         />
         <div className="flex gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity">
@@ -523,7 +523,7 @@ const App: React.FC = () => {
                         if (!e.target.value) setSemanticResultIds(null);
                       }}
                       onKeyDown={(e) => e.key === 'Enter' && handleOmniSearch(searchTerm)}
-                      className="bg-transparent border-none outline-none text-[10px] font-bold text-white px-3 w-32"
+                      className="bg-transparent border-none outline-none text-xs font-bold text-white px-3 w-64"
                     />
                     <Button variant="ghost" className="!p-1 !text-[10px]" onClick={() => handleOmniSearch(searchTerm)} isLoading={isSearchingAI}><i className="fas fa-brain"></i></Button>
                   </div>
