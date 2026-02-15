@@ -84,7 +84,7 @@ const OmniBox: React.FC<{
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
-          placeholder="Where to next? 🌍"
+          placeholder="Explore your journey... 🌍"
           className="bg-transparent border-none outline-none text-white w-full text-lg placeholder-[#567] font-medium"
         />
         <div className="flex gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity">
