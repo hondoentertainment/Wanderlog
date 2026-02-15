@@ -84,6 +84,7 @@ const OmniBox: React.FC<{
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKey}
+          id="main-search-input"
           placeholder="Explore your journey... 🌍"
           className="bg-transparent border-none outline-none text-white w-full text-lg placeholder-[#567] font-medium"
         />
@@ -725,7 +726,7 @@ const App: React.FC = () => {
                   <Button
                     className="bg-[#00e054] text-black hover:bg-[#00c044] font-bold px-8 py-6 rounded-xl text-lg shadow-[0_0_20px_rgba(0,224,84,0.2)] hover:shadow-[0_0_30px_rgba(0,224,84,0.4)] transition-all"
                     onClick={() => {
-                      const searchInput = document.querySelector('input[placeholder*="Where to next"]') as HTMLInputElement;
+                      const searchInput = document.getElementById('main-search-input');
                       if (searchInput) {
                         searchInput.focus();
                         window.scrollTo({ top: 0, behavior: 'smooth' });
