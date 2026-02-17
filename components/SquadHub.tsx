@@ -148,7 +148,7 @@ export const SquadHub: React.FC<SquadHubProps> = ({
               <Button variant="secondary" onClick={addMember}>ADD</Button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {tempMembers.map((m, i) => (
+              {(tempMembers || []).map((m, i) => (
                 <span key={i} className="text-[10px] bg-[#2c3440] text-[#9ab] px-2 py-1 rounded-sm border border-white/5">
                   {m.name} ({m.style})
                 </span>
@@ -218,7 +218,7 @@ export const SquadHub: React.FC<SquadHubProps> = ({
                 <div>
                   <span className="text-[9px] font-black text-[#567] uppercase block mb-2 tracking-widest">Squad Members</span>
                   <div className="flex flex-wrap gap-1.5">
-                    {trip.members.map((m, i) => (
+                    {(trip.members || []).map((m, i) => (
                       <span key={i} className="text-[8px] font-black uppercase px-2 py-0.5 bg-[#14181c] text-[#9ab] border border-white/5 rounded-full" title={m.style}>
                         {m.name}
                       </span>
@@ -229,7 +229,7 @@ export const SquadHub: React.FC<SquadHubProps> = ({
                 <div>
                   <span className="text-[9px] font-black text-[#567] uppercase block mb-2 tracking-widest">Planned Activities</span>
                   <div className="space-y-1.5">
-                    {trip.items.length > 0 ? trip.items.slice(0, 3).map((it, i) => (
+                    {(trip.items || []).length > 0 ? (trip.items || []).slice(0, 3).map((it, i) => (
                       <div key={i} className="text-[11px] text-[#def] font-medium flex items-center gap-2">
                         <i className="fas fa-check text-[8px] text-[#00e054]"></i>
                         {it}
@@ -439,7 +439,7 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
             <div>
               <span className="text-[9px] font-black text-[#567] uppercase block mb-2 tracking-widest">Squad Members</span>
               <div className="flex flex-wrap gap-2">
-                {trip.members.map((m, i) => (
+                {(trip.members || []).map((m, i) => (
                   <span key={i} className="text-[10px] font-black uppercase px-3 py-1.5 bg-[#14181c] text-[#9ab] border border-white/5 rounded-full" title={m.style}>
                     {m.name} <span className="text-[#567]">({m.style})</span>
                   </span>
@@ -463,7 +463,7 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
               </div>
 
               <div className="space-y-2">
-                {trip.items.length > 0 ? trip.items.map((it, i) => (
+                {(trip.items || []).length > 0 ? trip.items.map((it, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-[#14181c] rounded border border-[#2c3440]">
                     <i className="fas fa-check text-[#00e054] text-xs" />
                     <span className="text-sm text-[#def]">{it}</span>
