@@ -7,9 +7,9 @@ interface MobileNavProps {
 
 const navItems = [
     { id: 'history', label: 'Home', icon: 'fa-home' },
-    { id: 'savedtrips', label: 'Saved', icon: 'fa-bookmark' },
+    { id: 'discovery', label: 'Explore', icon: 'fa-compass' },
     { id: 'jules', label: 'Jules', icon: 'fa-robot' },
-    { id: 'badges', label: 'Badges', icon: 'fa-trophy' },
+    { id: 'profile', label: 'Profile', icon: 'fa-user' },
 ];
 
 export const MobileNav: React.FC<MobileNavProps> = ({ currentView, onNavigate }) => {

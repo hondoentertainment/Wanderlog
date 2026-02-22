@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from './firebaseConfig';
+import { db, storage } from './firebaseConfig';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
 import { STORAGE_KEY } from '../constants';
 
@@ -63,5 +64,21 @@ export const deleteUserData = async (userId: string): Promise<void> => {
   } catch (error) {
     console.error("Error deleting user data:", error);
     throw error;
+  }
+};
+
+export const uploadPhoto = async (userId: string, file: File): Promise<string> => {
+  const fileId = crypto.randomUUID();
+  const storageRef = ref(storage, `users/${userId}/photos/${fileId}`);
+  const snapshot = await uploadBytes(storageRef, file);
+  return getDownloadURL(snapshot.ref);
+};
+
+export const deletePhoto = async (photoUrl: string): Promise<void> => {
+  try {
+    const storageRef = ref(storage, photoUrl);
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.error("Error deleting photo:", error);
   }
 };

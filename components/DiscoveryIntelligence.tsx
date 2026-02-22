@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { TravelLocation, UserProfile } from '../types';
-import { getDiscoveryContext, DiscoveryContext } from '../services/geminiService';
+import { getDiscoveryContext, DiscoveryContext, generateItinerary, exportItineraryToICS } from '../services/geminiService';
 import { Button } from './Button';
+import { useToast } from './Toast';
 
 interface DiscoveryIntelligenceProps {
     location: TravelLocation;
@@ -20,16 +21,48 @@ export const DiscoveryIntelligence: React.FC<DiscoveryIntelligenceProps> = ({
 }) => {
     const [context, setContext] = useState<DiscoveryContext | null>(null);
     const [loading, setLoading] = useState(true);
+    const [itinerary, setItinerary] = useState<any[] | null>(null);
+    const [isPlanning, setIsPlanning] = useState(false);
+    const { showToast } = useToast();
 
     useEffect(() => {
         const fetchContext = async () => {
             setLoading(true);
-            const data = await getDiscoveryContext(location.name, visitedLocations, profile);
-            setContext(data);
-            setLoading(false);
+            try {
+                const data = await getDiscoveryContext(location.name, visitedLocations, profile);
+                setContext(data);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
         };
         fetchContext();
     }, [location.name]);
+
+    const handlePlanTrip = async () => {
+        setIsPlanning(true);
+        showToast(`Jules is crafting an itinerary for ${location.name}...`, 'info');
+        try {
+            const data = await generateItinerary(location.name, profile);
+            setItinerary(data);
+            showToast("Trip planned! See below.", 'success');
+        } catch (e) {
+            showToast("AI planning failed.", "error");
+        } finally {
+            setIsPlanning(false);
+        }
+    };
+
+    const handleExportToCalendar = () => {
+        if (!itinerary) return;
+        try {
+            exportItineraryToICS(location.name, itinerary);
+            showToast("Itinerary exported to Calendar (.ics)", "success");
+        } catch (e) {
+            showToast("Export failed.", "error");
+        }
+    };
 
     return (
         <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -106,9 +139,37 @@ export const DiscoveryIntelligence: React.FC<DiscoveryIntelligenceProps> = ({
                         </div>
                     </div>
 
-                    <Button variant="ghost" className="w-full bg-[#00e054]/10 hover:bg-[#00e054] text-[#00e054] hover:text-black border border-[#00e054]/20 py-4 font-black uppercase tracking-widest text-xs rounded-2xl">
-                        Plan a 3-Day Trip
-                    </Button>
+                    {itinerary ? (
+                        <div className="space-y-4">
+                            <Button variant="primary" className="w-full !py-4" onClick={handleExportToCalendar}>
+                                <i className="fas fa-calendar-plus mr-2"></i> Add to Calendar
+                            </Button>
+                            <div className="bg-[#1b2228]/80 border border-[#2c3440] p-6 rounded-2xl max-h-96 overflow-y-auto custom-scrollbar">
+                                {itinerary.map((day, idx) => (
+                                    <div key={idx} className="mb-6 last:mb-0">
+                                        <h5 className="text-[10px] font-black text-[#00e054] uppercase mb-2">Day {day.day}: {day.title}</h5>
+                                        <ul className="space-y-2">
+                                            {day.activities.map((act: string, aIdx: number) => (
+                                                <li key={aIdx} className="text-[11px] text-[#def] flex items-start gap-2">
+                                                    <span className="w-1 h-1 rounded-full bg-[#456] mt-1.5 shrink-0"></span>
+                                                    {act}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <Button
+                            variant="ghost"
+                            className="w-full bg-[#00e054]/10 hover:bg-[#00e054] text-[#00e054] hover:text-black border border-[#00e054]/20 py-4 font-black uppercase tracking-widest text-xs rounded-2xl"
+                            onClick={handlePlanTrip}
+                            isLoading={isPlanning}
+                        >
+                            {isPlanning ? 'Analyzing...' : 'Plan a 3-Day Trip'}
+                        </Button>
+                    )}
                 </div>
             </div>
         </div>

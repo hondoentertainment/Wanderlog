@@ -39,7 +39,7 @@ export const TravelMuse: React.FC<TravelMuseProps> = ({ insights, isLoading, onR
           insights.map((insight) => (
             <div
               key={insight.id}
-              className={`bg-[#1b2228] p-6 rounded border transition-all hover:bg-[#202830] flex flex-col justify-between h-full ${insight.type === 'gem' ? 'border-[#ff8000]/30 border-l-4 border-l-[#ff8000]' : 'border-[#2c3440]'
+              className={`bg-[#1b2228]/60 backdrop-blur-md p-6 rounded-2xl border transition-all hover:bg-[#1b2228]/80 hover:scale-[1.02] duration-300 flex flex-col justify-between h-full group ${insight.type === 'gem' ? 'border-[#ff8000]/50 shadow-[0_0_20px_rgba(255,128,0,0.1)] hover:shadow-[0_0_30px_rgba(255,128,0,0.2)]' : 'border-[#2c3440] hover:border-[#40bcf4]/30'
                 }`}
             >
               <div>

@@ -2,11 +2,16 @@
 import React, { useState, useMemo } from 'react';
 import { UserProfile } from '../types';
 import { Button } from './Button';
+import { StarRating } from './StarRating';
+import { exportService } from '../services/exportService';
+import { TravelLocation } from '../types';
+import { useToast } from './Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUserData } from '../services/storageService';
 
 interface ProfileProps {
   profile: UserProfile;
+  locations: TravelLocation[];
   onUpdate: (profile: UserProfile) => void;
 }
 
@@ -20,13 +25,17 @@ const PREDEFINED_TRAVEL_STYLES = [
   'Van Life', 'Medical Tourism', 'Educational', 'Ancestry', 'Extreme Sports', 'Slow Travel'
 ].sort();
 
-export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
+export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }) => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [name, setName] = useState(profile.name);
   const [isDeleting, setIsDeleting] = useState(false);
   const [newBucketItem, setNewBucketItem] = useState('');
   const [styleSearch, setStyleSearch] = useState('');
   const [customStyleInput, setCustomStyleInput] = useState('');
+
+  const { addToast } = useToast();
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     ...profile,
@@ -41,6 +50,24 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
   const handleLogout = async () => {
     if (confirm("Log out of WanderLog?")) {
       await logout();
+    }
+  };
+
+  const handleExportResume = async () => {
+    setIsExporting(true);
+    try {
+      const profileContent = document.getElementById('profile-content');
+      if (profileContent) {
+        await exportService.generateTravelResume(profile, locations, 'profile-content');
+        showToast('Travel resume exported successfully!', 'success');
+      } else {
+        throw new Error('Profile content not found for export.');
+      }
+    } catch (error) {
+      console.error('Error exporting profile:', error);
+      showToast('Failed to export travel resume.', 'error');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -125,7 +152,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
 
   if (!isEditing) {
     return (
-      <div className="bg-[#1b2228] border border-[#2c3440] rounded-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+      <div id="profile-content" className="bg-[#1b2228] border border-[#2c3440] rounded-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
         <div className="h-40 bg-gradient-to-b from-[#40bcf4]/20 to-[#1b2228] relative">
           <div className="absolute inset-0 bg-black/40"></div>
         </div>
@@ -135,9 +162,16 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
               {profile.name.charAt(0)}
             </div>
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setIsEditing(true)}>
-                Edit Profile
-              </Button>
+              <div className="flex gap-2">
+                {!isEditing && (
+                  <Button variant="ghost" onClick={handleExportResume} isLoading={isExporting} className="border border-[#40bcf4]/30 text-[#40bcf4] hover:bg-[#40bcf4]/10">
+                    <i className="fas fa-file-pdf mr-2"></i> DOWNLOAD RESUME
+                  </Button>
+                )}
+                <Button variant="secondary" onClick={() => setIsEditing(!isEditing)}>
+                  {isEditing ? 'CANCEL' : 'EDIT PROFILE'}
+                </Button>
+              </div>
               <Button variant="ghost" onClick={handleLogout} className="border border-[#2c3440] hover:bg-red-500/10 hover:text-red-500 transition-all">
                 Logout
               </Button>
@@ -184,12 +218,14 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
   }
 
   return (
-    <div className="bg-[#1b2228] border border-[#2c3440] p-8 space-y-8 animate-in fade-in duration-300 rounded shadow-2xl max-w-3xl mx-auto">
-      <div className="flex justify-between items-center border-b border-[#2c3440] pb-4">
-        <h2 className="text-lg font-black text-white tracking-widest uppercase">Profile Settings</h2>
-        <button onClick={() => setIsEditing(false)} className="text-[#567] hover:text-white transition-colors">
-          <i className="fas fa-times text-xl"></i>
-        </button>
+    <div id="profile-content" className="bg-[#1b2228] border border-[#2c3440] p-8 space-y-8 animate-in fade-in duration-300 rounded shadow-2xl max-w-3xl mx-auto">
+      <div className="flex justify-between items-start">
+        <div className="flex items-center gap-6">
+          <h2 className="text-lg font-black text-white tracking-widest uppercase">Profile Settings</h2>
+          <button onClick={() => setIsEditing(false)} className="text-[#567] hover:text-white transition-colors">
+            <i className="fas fa-times text-xl"></i>
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">

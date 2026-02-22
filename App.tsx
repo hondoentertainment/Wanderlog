@@ -12,6 +12,7 @@ const Recommendations = lazy(() => import('./components/Recommendations').then(m
 const Profile = lazy(() => import('./components/Profile').then(m => ({ default: m.Profile })));
 const MapModal = lazy(() => import('./components/MapModal').then(m => ({ default: m.MapModal })));
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const DiscoveryFeed = lazy(() => import('./components/DiscoveryFeed').then(m => ({ default: m.DiscoveryFeed })));
 const Timeline = lazy(() => import('./components/Timeline').then(m => ({ default: m.Timeline })));
 const TravelMuse = lazy(() => import('./components/TravelMuse').then(m => ({ default: m.TravelMuse })));
 const SquadHub = lazy(() => import('./components/SquadHub').then(m => ({ default: m.SquadHub })));
@@ -123,10 +124,10 @@ const Header: React.FC<{
         <nav className="hidden md:flex bg-[#1b2228]/60 backdrop-blur-lg border border-[#2c3440] rounded-full px-2 py-1.5 shadow-xl">
           {[
             { id: 'history', icon: 'fa-globe', label: 'World' },
+            { id: 'discovery', icon: 'fa-compass', label: 'Expedition' },
             { id: 'savedtrips', icon: 'fa-map', label: 'Trips' },
             { id: 'squad', icon: 'fa-users', label: 'Squad' },
             { id: 'bucketlist', icon: 'fa-bookmark', label: 'Bucket' },
-            { id: 'sharedlists', icon: 'fa-share-alt', label: 'Shared' },
           ].map(item => (
             <button
               key={item.id}
@@ -461,7 +462,8 @@ const App: React.FC = () => {
 
         <Suspense fallback={<DashboardShimmer />}>
           {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
-          {currentView === 'profile' && <Profile profile={profile} onUpdate={handleUpdateProfile} />}
+          {currentView === 'profile' && <Profile profile={profile} locations={locations} onUpdate={handleUpdateProfile} />}
+          {currentView === 'discovery' && <DiscoveryFeed />}
           {currentView === 'squad' && (
             <SquadHub
               trips={squadTrips}

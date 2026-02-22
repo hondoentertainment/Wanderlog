@@ -35,6 +35,7 @@ export interface TravelLocation {
   companions?: CompanionType[];
   coordinates?: { lat: number; lng: number; zoom?: number };
   wishlistData?: WishlistData;
+  photoUrls?: string[];
 }
 
 export interface TravelDNA {
@@ -198,6 +199,7 @@ export interface PublicProfile {
   totalCountries: number;
   totalStates: number;
   favoriteDestinations: string[];
+  resumeUrl?: string;
 }
 
 // Enhanced SquadTrip with collaboration features
