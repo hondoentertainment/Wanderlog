@@ -40,14 +40,7 @@ export const getAIRecommendations = async (
   My History:
   ${historyText}
 
-  Use Google Maps and Search to find real, interesting places.
-  
-  For each recommendation, provide exactly these fields in order:
-  NAME: [Location Name]
-  TYPE: [state or country]
-  SCORE: [number 0-100]
-  REASON: [Short reason why I would like it]
-  ---`;
+  Use Google Maps and Search to find real, interesting places.`;
 
   try {
     const response = await getAI().models.generateContent({
@@ -57,31 +50,29 @@ export const getAIRecommendations = async (
         tools: [{ googleMaps: {} }, { googleSearch: {} }],
         toolConfig: coords ? {
           retrievalConfig: { latLng: { latitude: coords.latitude, longitude: coords.longitude } }
-        } : undefined
+        } : undefined,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              name: { type: Type.STRING },
+              type: { type: Type.STRING, enum: ['state', 'country'] },
+              suggestedRatingMatch: { type: Type.NUMBER },
+              reason: { type: Type.STRING }
+            },
+            required: ["name", "type", "suggestedRatingMatch", "reason"]
+          }
+        }
       },
     });
 
-    const text = response.text || '';
-    const recs: AIRecommendation[] = [];
-    const sections = text.split('---').filter(s => s.trim().length > 0);
-
-    for (const section of sections) {
-      const nameMatch = section.match(/NAME:\s*(.*)/i);
-      const typeMatch = section.match(/TYPE:\s*(.*)/i);
-      const scoreMatch = section.match(/SCORE:\s*(\d+)/i);
-      const reasonMatch = section.match(/REASON:\s*([\s\S]*)/i);
-
-      if (nameMatch && typeMatch && scoreMatch) {
-        recs.push({
-          name: nameMatch[1].trim(),
-          type: typeMatch[1].trim().toLowerCase().includes('state') ? LocationType.STATE : LocationType.COUNTRY,
-          suggestedRatingMatch: parseInt(scoreMatch[1]),
-          reason: reasonMatch ? reasonMatch[1].trim() : 'Perfect match for your travel style.'
-        });
-      }
-    }
-
-    return recs.slice(0, 3);
+    const recs = JSON.parse(response.text || '[]');
+    return recs.map((r: any) => ({
+      ...r,
+      type: r.type === 'state' ? LocationType.STATE : LocationType.COUNTRY
+    })).slice(0, 3);
   } catch (error) {
     console.error("Error generating recommendations:", error);
     return [];
@@ -136,14 +127,7 @@ export const getTravelMuseInsights = async (
   ${historyText}
 
   My Profile Styles: ${profile.travelStyle.join(', ')}
-  Current Location: ${coords ? `${coords.latitude}, ${coords.longitude}` : 'Unknown'}
-
-  For each insight, provide:
-  TITLE: [Catchy title, e.g., 'Brutalist Enthusiast' or 'The Berlin Secret']
-  TYPE: [pattern or gem]
-  DESCRIPTION: [Deep insight into why I like this or what the hidden gem is. Be specific and conversational.]
-  RELEVANCE: [0-100]
-  ---`;
+  Current Location: ${coords ? `${coords.latitude}, ${coords.longitude}` : 'Unknown'}`;
 
   try {
     const response = await getAI().models.generateContent({
@@ -153,32 +137,29 @@ export const getTravelMuseInsights = async (
         tools: [{ googleMaps: {} }, { googleSearch: {} }],
         toolConfig: coords ? {
           retrievalConfig: { latLng: { latitude: coords.latitude, longitude: coords.longitude } }
-        } : undefined
+        } : undefined,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              type: { type: Type.STRING, enum: ['pattern', 'gem'] },
+              description: { type: Type.STRING },
+              relevanceScore: { type: Type.NUMBER }
+            },
+            required: ["title", "type", "description", "relevanceScore"]
+          }
+        }
       },
     });
 
-    const text = response.text || '';
-    const insights: TravelMuseInsight[] = [];
-    const sections = text.split('---').filter(s => s.trim().length > 0);
-
-    for (const section of sections) {
-      const titleMatch = section.match(/TITLE:\s*(.*)/i);
-      const typeMatch = section.match(/TYPE:\s*(.*)/i);
-      const descMatch = section.match(/DESCRIPTION:\s*([\s\S]*?)RELEVANCE:/i) || section.match(/DESCRIPTION:\s*([\s\S]*)/i);
-      const relevanceMatch = section.match(/RELEVANCE:\s*(\d+)/i);
-
-      if (titleMatch && typeMatch && descMatch) {
-        insights.push({
-          id: crypto.randomUUID(),
-          title: titleMatch[1].trim(),
-          type: typeMatch[1].trim().toLowerCase() as 'pattern' | 'gem',
-          description: descMatch[1].trim(),
-          relevanceScore: relevanceMatch ? parseInt(relevanceMatch[1]) : 80
-        });
-      }
-    }
-
-    return insights;
+    const insights = JSON.parse(response.text || '[]');
+    return insights.map((ins: any) => ({
+      ...ins,
+      id: crypto.randomUUID()
+    }));
   } catch (error) {
     console.error("Travel Muse analysis failed", error);
     return [];

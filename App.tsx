@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useEffect, useMemo, Suspense, lazy, useRef } from 'react';
 import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from './types';
 import { loadAppData, saveToCloud } from './services/storageService';
-import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations } from './services/geminiService';
+import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations, analyzeLogImage } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './components/Toast';
 import { Shimmer, DashboardShimmer } from './components/Shimmer';
@@ -58,9 +58,11 @@ const OmniBox: React.FC<{
   onLog: (name: string) => void;
   onSearch: (q: string) => void;
   onAsk: (q: string) => void;
+  onImageUpload?: (file: File) => void;
   isLoading?: boolean;
-}> = ({ onLog, onSearch, onAsk, isLoading }) => {
+}> = ({ onLog, onSearch, onAsk, onImageUpload, isLoading }) => {
   const [value, setValue] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && value.trim()) {
@@ -72,6 +74,13 @@ const OmniBox: React.FC<{
         onSearch(value.trim());
       }
       setValue('');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onImageUpload) {
+      onImageUpload(file);
     }
   };
 
@@ -89,8 +98,24 @@ const OmniBox: React.FC<{
           placeholder="Explore your journey... 🌍"
           className="bg-transparent border-none outline-none text-white w-full text-lg placeholder-[#567] font-medium"
         />
-        <div className="flex gap-2 opacity-0 group-focus-within:opacity-100 transition-opacity">
-          <kbd className="px-2 py-1 bg-[#2c3440] text-[10px] text-[#567] rounded uppercase font-black">Enter</kbd>
+        <div className="flex gap-4 items-center pl-4 border-l border-[#2c3440]">
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="text-[#567] hover:text-[#00e054] transition-colors"
+            title="Upload photo to log trip"
+          >
+            <i className="fas fa-camera text-lg"></i>
+          </button>
+          <div className="hidden group-focus-within:flex gap-2">
+            <kbd className="px-2 py-1 bg-[#2c3440] text-[10px] text-[#567] rounded uppercase font-black">Enter</kbd>
+          </div>
         </div>
       </div>
     </div>
@@ -104,8 +129,9 @@ const Header: React.FC<{
   onOmniLog: (name: string) => void;
   onOmniSearch: (q: string) => void;
   onOmniAsk: (q: string) => void;
+  onOmniImageUpload: (file: File) => void;
   isOmniLoading?: boolean;
-}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, isOmniLoading }) => {
+}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, isOmniLoading }) => {
   const { logout, signInWithGoogle } = useAuth();
 
   return (
@@ -164,7 +190,13 @@ const Header: React.FC<{
       </div>
 
       <div className="w-full max-w-2xl">
-        <OmniBox onLog={onOmniLog} onSearch={onOmniSearch} onAsk={onOmniAsk} isLoading={isOmniLoading} />
+        <OmniBox
+          onLog={onOmniLog}
+          onSearch={onOmniSearch}
+          onAsk={onOmniAsk}
+          onImageUpload={onOmniImageUpload}
+          isLoading={isOmniLoading}
+        />
       </div>
     </header>
   );
@@ -426,6 +458,28 @@ const App: React.FC = () => {
     }
   };
 
+  const [prefilledLocation, setPrefilledLocation] = useState<Partial<TravelLocation> | null>(null);
+
+  const handleOmniImageUpload = async (file: File) => {
+    setIsSearchingAI(true);
+    showToast("Analyzing your travel photo...", 'info');
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const result = await analyzeLogImage(base64);
+        setPrefilledLocation(result);
+        setCurrentView('add');
+        showToast("AI detected your location! Verify and save.", 'success');
+      };
+    } catch (e) {
+      showToast("Photo analysis failed.", 'error');
+    } finally {
+      setIsSearchingAI(false);
+    }
+  };
+
   const handleOmniAsk = (q: string) => {
     setCurrentView('jules');
   };
@@ -454,6 +508,7 @@ const App: React.FC = () => {
         onOmniLog={handleOmniLog}
         onOmniSearch={handleOmniSearch}
         onOmniAsk={handleOmniAsk}
+        onOmniImageUpload={handleOmniImageUpload}
         isOmniLoading={isSearchingAI}
       />
 
@@ -461,7 +516,15 @@ const App: React.FC = () => {
         {/* Local/Ghost Mode Banner Removed */}
 
         <Suspense fallback={<DashboardShimmer />}>
-          {currentView === 'add' && <LocationForm onAdd={handleAddLocation} />}
+          {currentView === 'add' && (
+            <LocationForm
+              onAdd={(loc) => {
+                handleAddLocation(loc);
+                setPrefilledLocation(null);
+              }}
+              prefilledData={prefilledLocation}
+            />
+          )}
           {currentView === 'profile' && <Profile profile={profile} locations={locations} onUpdate={handleUpdateProfile} />}
           {currentView === 'discovery' && <DiscoveryFeed />}
           {currentView === 'squad' && (

@@ -11,9 +11,10 @@ import { useToast } from './Toast';
 
 interface LocationFormProps {
   onAdd: (location: Omit<TravelLocation, 'id'>) => void;
+  prefilledData?: Partial<TravelLocation> | null;
 }
 
-export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
+export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<LocationType>(LocationType.COUNTRY);
   const [rating, setRating] = useState(4);
@@ -22,6 +23,16 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const [dislikeInput, setDislikeInput] = useState('');
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Handle prefilled data from OmniBox analysis
+  useEffect(() => {
+    if (prefilledData) {
+      if (prefilledData.name) setName(prefilledData.name);
+      if (prefilledData.type) setType(prefilledData.type);
+      if (prefilledData.dateVisited) setDate(prefilledData.dateVisited);
+      if (prefilledData.likes) setLikes(prev => [...new Set([...prev, ...(prefilledData.likes || [])])]);
+    }
+  }, [prefilledData]);
   const [endDate, setEndDate] = useState('');
   const [companions, setCompanions] = useState<CompanionType[]>([]);
   const [isScanning, setIsScanning] = useState(false);

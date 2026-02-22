@@ -35,7 +35,7 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }
   const [styleSearch, setStyleSearch] = useState('');
   const [customStyleInput, setCustomStyleInput] = useState('');
 
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     ...profile,
