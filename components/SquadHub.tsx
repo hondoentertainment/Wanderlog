@@ -4,6 +4,7 @@ import { Button } from './Button';
 import { getSquadActivitySuggestions } from '../services/geminiService';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
+import { SquadChallenges } from './SquadChallenges';
 
 interface SquadHubProps {
   trips: SquadTrip[];
@@ -297,7 +298,7 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
   isGeneratingAI,
   onCopyCode,
 }) => {
-  const [activeTab, setActiveTab] = useState<'activities' | 'chat'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'chat' | 'challenges'>('activities');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -421,13 +422,13 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
           <i className="fas fa-tasks mr-2" /> Activities ({trip.items.length})
         </button>
         <button
-          onClick={() => setActiveTab('chat')}
-          className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors ${activeTab === 'chat'
+          onClick={() => setActiveTab('challenges')}
+          className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors ${activeTab === 'challenges'
             ? 'text-[#00e054] border-b-2 border-[#00e054]'
             : 'text-[#567] hover:text-white'
             }`}
         >
-          <i className="fas fa-comments mr-2" /> Chat ({messages.length})
+          <i className="fas fa-trophy mr-2" /> Goals
         </button>
       </div>
 
@@ -491,6 +492,8 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
               <code className="text-[10px] font-mono text-[#40bcf4] break-all">{trip.joinCode}</code>
             </div>
           </div>
+        ) : activeTab === 'challenges' ? (
+          <SquadChallenges trip={trip} />
         ) : (
           <div className="space-y-4">
             {/* Chat Messages */}

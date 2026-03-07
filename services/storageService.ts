@@ -12,15 +12,22 @@ export const DEFAULT_PROFILE: UserProfile = {
   customTravelStyles: []
 };
 
+import { offlineQueue } from './offlineQueue';
+
 // --- Storage Logic ---
 
-export const saveToCloud = async (userId: string, data: StorageData): Promise<void> => {
+export const saveToCloud = async (userId: string, data: StorageData, bypassQueue = false): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
     await setDoc(userRef, data, { merge: true });
   } catch (error) {
     console.error("Error saving to cloud:", error);
-    throw error;
+    if (!bypassQueue) {
+      console.log("Network error detected. Enqueuing save operation...");
+      await offlineQueue.enqueue(userId, data);
+    } else {
+      throw error;
+    }
   }
 };
 

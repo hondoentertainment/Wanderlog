@@ -199,6 +199,41 @@ export const analyzeLogImage = async (base64Image: string): Promise<Partial<Trav
 };
 
 /**
+ * Voice Command Analysis: Extracts travel intent from speech transcript
+ */
+export const analyzeVoiceCommand = async (transcript: string): Promise<Partial<TravelLocation>> => {
+  const prompt = `Extract the travel location name, date (if mentioned), and highlights from this spoken sentence: "${transcript}"
+  
+  Instructions:
+  - If no date mentioned, omit dateVisited.
+  - Convert natural language dates (e.g. "last summer") to YYYY-MM-DD if possible, else omit.
+  - Extract at least 2 likes/highlights.
+  - Return in JSON.`;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            dateVisited: { type: Type.STRING },
+            likes: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
+      }
+    });
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.error("Voice analysis failed", error);
+    return {};
+  }
+};
+
+/**
  * Semantic Search: Finds logs matching a natural language query
  */
 export const performSemanticSearch = async (query: string, locations: TravelLocation[], squadTrips: SquadTrip[] = []): Promise<string[]> => {

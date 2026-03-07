@@ -8,6 +8,7 @@ import { TravelLocation } from '../types';
 import { useToast } from './Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUserData } from '../services/storageService';
+import { TravelResume } from './TravelResume';
 
 interface ProfileProps {
   profile: UserProfile;
@@ -58,7 +59,9 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }
     try {
       const profileContent = document.getElementById('profile-content');
       if (profileContent) {
-        await exportService.generateTravelResume(profile, locations, 'profile-content');
+        // Wait a beat for the hidden resume to render if needed
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await exportService.generateTravelResume(profile, locations, 'resume-export-container');
         showToast('Travel resume exported successfully!', 'success');
       } else {
         throw new Error('Profile content not found for export.');
@@ -212,6 +215,11 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Hidden Resume for Export Only */}
+        <div className="fixed left-[-9999px] top-[-9999px] pointer-events-none origin-top" style={{ width: '210mm' }}>
+          <TravelResume profile={profile} locations={locations} dna={profile.dna} />
         </div>
       </div>
     );

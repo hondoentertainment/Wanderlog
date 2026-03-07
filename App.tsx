@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy, useRef } from 'react';
 import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from './types';
 import { loadAppData, saveToCloud } from './services/storageService';
-import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations, analyzeLogImage } from './services/geminiService';
+import { offlineQueue } from './services/offlineQueue';
+import { getCachedTravelDNA, setCachedTravelDNA } from './utils/dnaCache';
+import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations, analyzeLogImage, analyzeVoiceCommand } from './services/geminiService';
 import { useAuth } from './contexts/AuthContext';
 import { useToast } from './components/Toast';
 import { Shimmer, DashboardShimmer } from './components/Shimmer';
@@ -59,10 +61,43 @@ const OmniBox: React.FC<{
   onSearch: (q: string) => void;
   onAsk: (q: string) => void;
   onImageUpload?: (file: File) => void;
+  onVoiceTranscription?: (text: string) => void;
   isLoading?: boolean;
-}> = ({ onLog, onSearch, onAsk, onImageUpload, isLoading }) => {
+}> = ({ onLog, onSearch, onAsk, onImageUpload, onVoiceTranscription, isLoading }) => {
   const [value, setValue] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      recognitionRef.current.lang = 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setValue(transcript);
+        setIsListening(false);
+        if (onVoiceTranscription) onVoiceTranscription(transcript);
+      };
+
+      recognitionRef.current.onerror = () => setIsListening(false);
+      recognitionRef.current.onend = () => setIsListening(false);
+    }
+  }, [onVoiceTranscription]);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+    } else {
+      setIsListening(true);
+      recognitionRef.current?.start();
+    }
+  };
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && value.trim()) {
@@ -113,6 +148,13 @@ const OmniBox: React.FC<{
           >
             <i className="fas fa-camera text-lg"></i>
           </button>
+          <button
+            onClick={toggleListening}
+            className={`transition-colors ${isListening ? 'text-[#00e054] animate-pulse' : 'text-[#567] hover:text-[#00e054]'}`}
+            title="Talk to Jules (Voice Log)"
+          >
+            <i className={`fas ${isListening ? 'fa-microphone' : 'fa-microphone-slash'} text-lg`}></i>
+          </button>
           <div className="hidden group-focus-within:flex gap-2">
             <kbd className="px-2 py-1 bg-[#2c3440] text-[10px] text-[#567] rounded uppercase font-black">Enter</kbd>
           </div>
@@ -130,8 +172,9 @@ const Header: React.FC<{
   onOmniSearch: (q: string) => void;
   onOmniAsk: (q: string) => void;
   onOmniImageUpload: (file: File) => void;
+  onOmniVoiceTranscription?: (text: string) => void;
   isOmniLoading?: boolean;
-}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, isOmniLoading }) => {
+}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading }) => {
   const { logout, signInWithGoogle } = useAuth();
 
   return (
@@ -195,6 +238,7 @@ const Header: React.FC<{
           onSearch={onOmniSearch}
           onAsk={onOmniAsk}
           onImageUpload={onOmniImageUpload}
+          onVoiceTranscription={onOmniVoiceTranscription}
           isLoading={isOmniLoading}
         />
       </div>
@@ -247,6 +291,21 @@ const App: React.FC = () => {
   // Auth State
   const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
+
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('App is back online. Processing offline queue...');
+      offlineQueue.processQueue();
+      showToast('Back online! Syncing data...', 'info');
+    };
+
+    window.addEventListener('online', handleOnline);
+    if (navigator.onLine) {
+      offlineQueue.processQueue();
+    }
+
+    return () => window.removeEventListener('online', handleOnline);
+  }, [showToast]);
 
   useEffect(() => {
     let mounted = true;
@@ -364,11 +423,24 @@ const App: React.FC = () => {
     }
   };
 
-  const handleRefreshDNA = async () => {
+  const handleRefreshDNA = async (e?: any) => {
     if (!profile || locations.length === 0) return;
+
+    // Check if it's a manual click (force refresh)
+    const isManualClick = e && e.type === 'click';
+
     setLoadingDNA(true);
     try {
+      if (!isManualClick) {
+        const cached = getCachedTravelDNA();
+        if (cached) {
+          setProfile({ ...profile, dna: cached });
+          setLoadingDNA(false);
+          return;
+        }
+      }
       const dna = await generateTravelDNA(locations, profile);
+      setCachedTravelDNA(dna);
       setProfile({ ...profile, dna });
     } catch (e) { } finally { setLoadingDNA(false); }
   };
@@ -480,6 +552,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleOmniVoiceTranscription = async (text: string) => {
+    setIsSearchingAI(true);
+    showToast("Jules is listening... Extracting journey details.", 'info');
+    try {
+      const result = await analyzeVoiceCommand(text);
+      setPrefilledLocation(result);
+      setCurrentView('add');
+      showToast("Voice log processed! Confirm details.", 'success');
+    } catch (e) {
+      showToast("Voice analysis failed.", 'error');
+    } finally {
+      setIsSearchingAI(false);
+    }
+  };
+
   const handleOmniAsk = (q: string) => {
     setCurrentView('jules');
   };
@@ -509,6 +596,7 @@ const App: React.FC = () => {
         onOmniSearch={handleOmniSearch}
         onOmniAsk={handleOmniAsk}
         onOmniImageUpload={handleOmniImageUpload}
+        onOmniVoiceTranscription={handleOmniVoiceTranscription}
         isOmniLoading={isSearchingAI}
       />
 
