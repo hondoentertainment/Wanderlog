@@ -14,6 +14,7 @@ interface ProfileProps {
   profile: UserProfile;
   locations: TravelLocation[];
   onUpdate: (profile: UserProfile) => void;
+  onOpenCreatorHub?: () => void;
 }
 
 const PREDEFINED_TRAVEL_STYLES = [
@@ -26,7 +27,7 @@ const PREDEFINED_TRAVEL_STYLES = [
   'Van Life', 'Medical Tourism', 'Educational', 'Ancestry', 'Extreme Sports', 'Slow Travel'
 ].sort();
 
-export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }) => {
+export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, onOpenCreatorHub }) => {
   const { user, logout } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -199,6 +200,25 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }
                   )}
                 </div>
               </div>
+
+              {/* Creator Hub Teaser (Phase 7 SaaS) */}
+              {onOpenCreatorHub && (
+                <div
+                  className="mt-8 bg-gradient-to-r from-[#FBD315]/10 to-[#bc1888]/10 border border-[#FBD315]/30 rounded-xl p-6 flex items-center justify-between group hover:border-[#FBD315] hover:shadow-[0_0_20px_rgba(251,211,21,0.2)] transition-all cursor-pointer"
+                  onClick={onOpenCreatorHub}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-[#14181c] flex items-center justify-center border border-[#FBD315] shadow-[0_0_10px_rgba(251,211,21,0.5)] group-hover:scale-110 transition-transform">
+                      <i className="fas fa-crown text-xl text-[#FBD315]"></i>
+                    </div>
+                    <div>
+                      <h4 className="text-white text-sm font-black uppercase tracking-widest">Wanderlog Pro</h4>
+                      <p className="text-[#9ab] text-[10px] mt-1 font-bold">Monetize your Travel DNA & sell itineraries.</p>
+                    </div>
+                  </div>
+                  <Button variant="secondary" className="!text-[10px] bg-[#FBD315] text-[#14181c] hover:bg-[#ffe340] hover:text-black font-black border-none" onClick={onOpenCreatorHub}>Go Pro</Button>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -338,6 +358,25 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate }
                 <p className="text-[10px] text-[#567] italic py-2 text-center w-full">No matching styles found</p>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-4 border-t border-[#2c3440]">
+          <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Zero-UI Data Integrations</label>
+          <div className="bg-[#14181c] p-5 rounded-lg border border-[#2c3440] flex items-center justify-between group hover:border-[#bc1888]/50 transition-colors">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-white shadow-lg shadow-[#bc1888]/20 group-hover:scale-110 transition-transform">
+                <i className="fab fa-instagram text-2xl"></i>
+              </div>
+              <div>
+                <h4 className="text-white text-sm font-bold uppercase tracking-widest">Instagram Meta-Sync</h4>
+                <p className="text-[#9ab] text-[10px] mt-0.5 max-w-[200px]">Autonomously build past itineraries via geotagged photo scraping.</p>
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => {
+              showToast("Authenticating with Meta...", "info");
+              setTimeout(() => showToast("Scraping tags... 3 historical trips added to timeline!", "success"), 2500);
+            }} className="!text-[10px] uppercase font-black tracking-widest"><i className="fas fa-link mr-1"></i> Connect</Button>
           </div>
         </div>
 

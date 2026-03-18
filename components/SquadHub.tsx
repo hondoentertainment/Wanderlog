@@ -5,6 +5,8 @@ import { getSquadActivitySuggestions } from '../services/geminiService';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { SquadChallenges } from './SquadChallenges';
+import { SquadPayments } from './SquadPayments';
+import { MeshNetworkP2P } from './MeshNetworkP2P';
 
 interface SquadHubProps {
   trips: SquadTrip[];
@@ -298,7 +300,8 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
   isGeneratingAI,
   onCopyCode,
 }) => {
-  const [activeTab, setActiveTab] = useState<'activities' | 'chat' | 'challenges'>('activities');
+  const [activeTab, setActiveTab] = useState<'activities' | 'chat' | 'challenges' | 'payments'>('activities');
+  const [showMesh, setShowMesh] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
@@ -379,7 +382,10 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
   }, {} as { [date: string]: ChatMessage[] });
 
   return (
-    <div className="bg-[#1b2228] border border-[#2c3440] rounded-lg overflow-hidden animate-in fade-in duration-300">
+    <div className="bg-[#1b2228] border border-[#2c3440] rounded-lg overflow-hidden animate-in fade-in duration-300 relative">
+      {showMesh && (
+        <MeshNetworkP2P squad={trip} onClose={() => setShowMesh(false)} />
+      )}
       {/* Header */}
       <div className="p-5 border-b border-[#2c3440] flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -395,6 +401,13 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowMesh(true)}
+            className="px-3 py-1.5 bg-[#00e054]/10 text-[#00e054] border border-[#00e054]/30 hover:bg-[#00e054] hover:text-[#14181c] text-[10px] font-black uppercase tracking-widest rounded transition-colors hidden sm:block"
+            title="Simulate Zero-Latency Off-Grid Mesh Sync"
+          >
+            <i className="fas fa-network-wired mr-1 animate-pulse" /> MESH
+          </button>
           <button
             onClick={onCopyCode}
             className="px-3 py-1.5 bg-[#2c3440] text-[#9ab] text-[10px] font-bold uppercase rounded hover:bg-[#456] transition-colors"
@@ -429,6 +442,15 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
             }`}
         >
           <i className="fas fa-trophy mr-2" /> Goals
+        </button>
+        <button
+          onClick={() => setActiveTab('payments')}
+          className={`flex-1 py-3 text-xs font-black uppercase tracking-widest transition-colors ${activeTab === 'payments'
+            ? 'text-[#40bcf4] border-b-2 border-[#40bcf4]'
+            : 'text-[#567] hover:text-white'
+            }`}
+        >
+          <i className="fas fa-wallet mr-2" /> Ledger
         </button>
       </div>
 
@@ -494,6 +516,8 @@ const SquadTripDetail: React.FC<SquadTripDetailProps> = ({
           </div>
         ) : activeTab === 'challenges' ? (
           <SquadChallenges trip={trip} />
+        ) : activeTab === 'payments' ? (
+          <SquadPayments trip={trip} currentUserName={userName} />
         ) : (
           <div className="space-y-4">
             {/* Chat Messages */}

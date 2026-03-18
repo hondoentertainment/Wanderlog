@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TravelLocation, UserProfile } from '../types';
-import { getDiscoveryContext, DiscoveryContext, generateItinerary, exportItineraryToICS } from '../services/geminiService';
+import { getDiscoveryContext, DiscoveryContext, generateItinerary, exportItineraryToICS, getLocationDetails } from '../services/geminiService';
 import { Button } from './Button';
 import { useToast } from './Toast';
 
@@ -44,7 +44,8 @@ export const DiscoveryIntelligence: React.FC<DiscoveryIntelligenceProps> = ({
         setIsPlanning(true);
         showToast(`Jules is crafting an itinerary for ${location.name}...`, 'info');
         try {
-            const data = await generateItinerary(location.name, profile);
+            const details = await getLocationDetails(location.name, location.type as any);
+            const data = await generateItinerary(location.name, location.type as any, details.description, details.attractions);
             setItinerary(data);
             showToast("Trip planned! See below.", 'success');
         } catch (e) {

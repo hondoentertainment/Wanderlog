@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { TravelLocation } from '../types';
+import { FlightTracker } from './FlightTracker';
 
 interface TimelineProps {
   locations: TravelLocation[];
@@ -16,6 +17,11 @@ export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare
 
   return (
     <div className="flex flex-col mb-12">
+      {/* Flight Pricing Heatmap */}
+      <div className="px-8 max-w-sm mb-2">
+        <FlightTracker />
+      </div>
+
       {/* Data Ingestion Demo (VC Pitch) */}
       {onSimulateSync && (
         <div className="w-full max-w-sm ml-8 mb-8">

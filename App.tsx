@@ -29,10 +29,15 @@ const AchievementBadges = lazy(() => import('./components/AchievementBadges').th
 const AskJules = lazy(() => import('./components/AskJules').then(m => ({ default: m.AskJules })));
 const Login = lazy(() => import('./components/Login').then(m => ({ default: m.Login })));
 const DiscoveryIntelligence = lazy(() => import('./components/DiscoveryIntelligence').then(m => ({ default: m.DiscoveryIntelligence })));
+const CreatorDashboard = lazy(() => import('./components/CreatorDashboard').then(m => ({ default: m.CreatorDashboard })));
+const AgencyPortal = lazy(() => import('./components/AgencyPortal').then(m => ({ default: m.AgencyPortal })));
+const ARViewfinder = lazy(() => import('./components/ARViewfinder').then(m => ({ default: m.ARViewfinder })));
+const AutoExecutor = lazy(() => import('./components/AutoExecutor').then(m => ({ default: m.AutoExecutor })));
 
-// Static Critical Components
 import { Button } from './components/Button';
 import { StarRating } from './components/StarRating';
+import { ReceiptScanner } from './components/ReceiptScanner';
+import { WalkmanMode } from './components/WalkmanMode';
 
 const HighlightText: React.FC<{ text: string; highlight: string }> = ({ text, highlight }) => {
   if (!highlight.trim()) return <span>{text}</span>;
@@ -175,7 +180,12 @@ const Header: React.FC<{
   onOmniVoiceTranscription?: (text: string) => void;
   isOmniLoading?: boolean;
   onSimulateAlert?: () => void;
-}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading, onSimulateAlert }) => {
+  onOpenScanner?: () => void;
+  onOpenAgency?: () => void;
+  onOpenAR?: () => void;
+  onOpenAutoExec?: () => void;
+  onOpenWatch?: () => void;
+}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading, onSimulateAlert, onOpenScanner, onOpenAgency, onOpenAR, onOpenAutoExec, onOpenWatch }) => {
   const { logout, signInWithGoogle } = useAuth();
 
   return (
@@ -242,18 +252,76 @@ const Header: React.FC<{
               Demo Alert
             </button>
           )}
+
+          {/* VC Demo Hook: Agency Mode SaaS */}
+          {user && onOpenAgency && (
+            <button
+              onClick={onOpenAgency}
+              className="bg-[#40bcf4]/10 text-[#40bcf4] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-[#40bcf4]/30 hover:bg-[#40bcf4] hover:text-[#14181c] transition-all ml-2 flex items-center gap-2"
+              title="Enter B2B Travel Agent SaaS Mode"
+            >
+              <i className="fas fa-building"></i>
+              <span className="hidden md:inline">Agency Mode</span>
+            </button>
+          )}
+
+          {/* VC Demo Hook: AR Spatial Lens */}
+          {user && onOpenAR && (
+            <button
+              onClick={onOpenAR}
+              className="bg-[#00e054]/10 text-[#00e054] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-[#00e054]/30 hover:bg-[#00e054] hover:text-[#14181c] transition-all ml-2 group hidden lg:inline-flex"
+              title="Launch Spatial AR Lens"
+            >
+              <i className="fas fa-vr-cardboard mr-2 group-hover:animate-pulse"></i>
+              AR Mode
+            </button>
+          )}
+
+          {/* VC Demo Hook: Autonomous Execution */}
+          {user && onOpenAutoExec && (
+            <button
+              onClick={onOpenAutoExec}
+              className="bg-[#bc1888]/10 text-[#bc1888] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-[#bc1888]/30 hover:bg-[#bc1888] hover:text-[#14181c] transition-all ml-2 flex items-center gap-2 group hidden lg:inline-flex"
+              title="Trigger Autonomous Agent"
+            >
+              <i className="fas fa-bolt group-hover:text-yellow-400"></i>
+              <span>Auto-Exec</span>
+            </button>
+          )}
+
+          {/* VC Demo Hook: Watch HUD */}
+          {user && onOpenWatch && (
+            <button
+              onClick={onOpenWatch}
+              className="bg-black text-[#fff] px-3 py-2 rounded-full text-[12px] font-black uppercase tracking-widest border border-[#333] hover:bg-[#333] transition-all ml-2 hidden lg:inline-flex"
+              title="Demo Apple Watch Haptics"
+            >
+              <i className="fab fa-apple"></i>
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="w-full max-w-2xl">
-        <OmniBox
-          onLog={onOmniLog}
-          onSearch={onOmniSearch}
-          onAsk={onOmniAsk}
-          onImageUpload={onOmniImageUpload}
-          onVoiceTranscription={onOmniVoiceTranscription}
-          isLoading={isOmniLoading}
-        />
+      <div className="w-full max-w-3xl flex items-center justify-center gap-4">
+        <div className="flex-1">
+          <OmniBox
+            onLog={onOmniLog}
+            onSearch={onOmniSearch}
+            onAsk={onOmniAsk}
+            onImageUpload={onOmniImageUpload}
+            onVoiceTranscription={onOmniVoiceTranscription}
+            isLoading={isOmniLoading}
+          />
+        </div>
+        {onOpenScanner && (
+          <button
+            onClick={onOpenScanner}
+            className="w-14 h-14 shrink-0 bg-[#1b2228]/80 backdrop-blur-md rounded-full border border-[#2c3440] flex items-center justify-center text-[#567] hover:text-[#00e054] hover:border-[#00e054] transition-all shadow-2xl group"
+            title="Scan Paper Itinerary / Receipt"
+          >
+            <i className="fas fa-file-invoice text-xl group-hover:scale-110 transition-transform"></i>
+          </button>
+        )}
       </div>
     </header>
   );
@@ -274,10 +342,14 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard' | 'jules' | 'badges' | 'sharedlists' | 'collaborative'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard' | 'jules' | 'badges' | 'sharedlists' | 'collaborative' | 'creator' | 'agency'>('history');
   const [selectedCollaborativeListId, setSelectedCollaborativeListId] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalTrip, setShareModalTrip] = useState<TravelLocation | null>(null);
+  const [showReceiptScanner, setShowReceiptScanner] = useState(false);
+  const [showARViewfinder, setShowARViewfinder] = useState(false);
+  const [showAutoExec, setShowAutoExec] = useState(false);
+  const [showWatchHUD, setShowWatchHUD] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
@@ -621,6 +693,39 @@ const App: React.FC = () => {
 
   return (
     <Layout>
+      {showARViewfinder && (
+        <Suspense fallback={null}>
+          <ARViewfinder onClose={() => setShowARViewfinder(false)} />
+        </Suspense>
+      )}
+      {showAutoExec && (
+        <Suspense fallback={null}>
+          <AutoExecutor onClose={() => setShowAutoExec(false)} />
+        </Suspense>
+      )}
+      {showWatchHUD && (
+        <div className="fixed bottom-4 right-4 z-[99] bg-[#0a0a0b] border-[6px] border-[#1b2228] p-3 rounded-[32px] w-40 h-48 flex flex-col items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.8)] animate-in slide-in-from-right duration-500 cursor-pointer group hover:scale-105 transition-transform" onClick={() => setShowWatchHUD(false)}>
+          <div className="absolute top-1 right-1 w-1.5 h-6 bg-[#2c3440] rounded-l-full"></div>
+          <i className="fas fa-map-marker-alt text-[#00e054] text-4xl mb-3 animate-bounce shadow-[0_0_15px_rgba(0,224,84,0.5)] rounded-full text-shadow-glow"></i>
+          <h4 className="text-white font-black uppercase text-sm text-center tracking-tight mb-1 group-hover:text-[#00e054] transition-colors">Turn Left</h4>
+          <p className="text-[#9ab] text-[10px] text-center font-bold">Speakeasy in 40ft.</p>
+          <div className="mt-2 flex gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00e054] animate-pulse"></span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00e054] animate-pulse" style={{ animationDelay: '75ms' }}></span>
+          </div>
+        </div>
+      )}
+      {showReceiptScanner && (
+        <ReceiptScanner
+          onClose={() => setShowReceiptScanner(false)}
+          onScanned={(loc) => {
+            handleAddLocation(loc);
+            setShowReceiptScanner(false);
+          }}
+        />
+      )}
+      <WalkmanMode onExtracted={(loc) => handleAddLocation(loc)} />
+
       <Header
         user={user}
         onViewChange={setCurrentView}
@@ -632,6 +737,11 @@ const App: React.FC = () => {
         onOmniVoiceTranscription={handleOmniVoiceTranscription}
         isOmniLoading={isSearchingAI}
         onSimulateAlert={handleSimulateAlert}
+        onOpenScanner={() => setShowReceiptScanner(true)}
+        onOpenAgency={() => setCurrentView('agency')}
+        onOpenAR={() => setShowARViewfinder(true)}
+        onOpenAutoExec={() => setShowAutoExec(true)}
+        onOpenWatch={() => setShowWatchHUD(prev => !prev)}
       />
 
       <main className="max-w-7xl mx-auto px-6 pb-24 relative z-10">
@@ -647,7 +757,9 @@ const App: React.FC = () => {
               prefilledData={prefilledLocation}
             />
           )}
-          {currentView === 'profile' && <Profile profile={profile} locations={locations} onUpdate={handleUpdateProfile} />}
+          {currentView === 'profile' && <Profile profile={profile} locations={locations} onUpdate={handleUpdateProfile} onOpenCreatorHub={() => setCurrentView('creator')} />}
+          {currentView === 'creator' && <CreatorDashboard onBack={() => setCurrentView('profile')} />}
+          {currentView === 'agency' && <AgencyPortal onBack={() => setCurrentView('history')} />}
           {currentView === 'discovery' && <DiscoveryFeed />}
           {currentView === 'squad' && (
             <SquadHub

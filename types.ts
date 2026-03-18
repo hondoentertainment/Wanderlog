@@ -61,6 +61,13 @@ export interface SquadMember {
   style: string;
 }
 
+export interface SquadPayment {
+  totalAmount: number;
+  splitAmount: number;
+  membersPaid: string[];
+  currency: string;
+}
+
 export interface SquadTrip {
   id: string;
   name: string;
@@ -69,6 +76,7 @@ export interface SquadTrip {
   items: string[]; // List of activity names
   joinCode: string;
   createdAt: string;
+  payments?: SquadPayment;
 }
 
 export interface UserProfile {

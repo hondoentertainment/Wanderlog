@@ -23,6 +23,9 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData
   const [dislikeInput, setDislikeInput] = useState('');
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [endDate, setEndDate] = useState<string>('');
+  const [companions, setCompanions] = useState<CompanionType[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
 
   // Handle prefilled data from OmniBox analysis
   useEffect(() => {

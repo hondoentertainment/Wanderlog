@@ -37,6 +37,19 @@ export const DiscoveryFeed: React.FC = () => {
         );
     }
 
+    const sponsoredMock: any = {
+        id: "sponsored-1",
+        name: "Osteria Francescana",
+        type: "Culinary Masterpiece",
+        rating: 5,
+        dateVisited: new Date().toISOString(),
+        photoUrls: ["https://images.unsplash.com/photo-1600891964092-4316c288032e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"],
+        likes: ["Tasting Menu", "Michelin 3-Star"],
+        isSponsored: true
+    };
+
+    const feedItems = [sponsoredMock, ...locations];
+
     return (
         <div className="space-y-12 animate-in fade-in duration-700">
             <div className="text-center space-y-2">
@@ -45,8 +58,8 @@ export const DiscoveryFeed: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {locations.map((loc, i) => (
-                    <div key={loc.id} className={`stagger-item stagger-${(i % 5) + 1} glass-card rounded-2xl overflow-hidden group hover:scale-[1.02]`}>
+                {feedItems.map((loc, i) => (
+                    <div key={loc.id} className={`stagger-item stagger-${(i % 5) + 1} glass-card rounded-2xl overflow-hidden group hover:scale-[1.02] ${loc.isSponsored ? 'border-[#FBD315]/50 shadow-[0_0_30px_rgba(251,211,21,0.15)] ring-1 ring-[#FBD315]/30' : ''}`}>
                         {loc.photoUrls && loc.photoUrls.length > 0 ? (
                             <div className="h-64 relative overflow-hidden">
                                 <img
@@ -55,7 +68,14 @@ export const DiscoveryFeed: React.FC = () => {
                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-[#14181c] via-transparent to-transparent opacity-60"></div>
-                                <div className="absolute bottom-4 left-4">
+                                <div className="absolute top-4 right-4 z-10">
+                                    {loc.isSponsored ? (
+                                        <span className="bg-[#14181c]/80 backdrop-blur-md border border-[#FBD315] text-[#FBD315] text-[8px] font-black px-2 py-1.5 rounded uppercase tracking-widest shadow-lg flex items-center gap-1">
+                                            <i className="fas fa-ad"></i> Sponsored Local Spotlight
+                                        </span>
+                                    ) : null}
+                                </div>
+                                <div className="absolute bottom-4 left-4 z-10">
                                     <span className="bg-[#00e054] text-black text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-tighter">
                                         {loc.type}
                                     </span>

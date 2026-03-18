@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { JulesMessage, TravelLocation, UserProfile } from '../types';
 import { askJules } from '../services/geminiService';
+import { NativeCheckoutModal } from './NativeCheckoutModal';
 
 interface AskJulesProps {
     locations: TravelLocation[];
@@ -8,11 +9,10 @@ interface AskJulesProps {
 }
 
 const SUGGESTED_QUESTIONS = [
+    "Book a table for 2 at Tokyo Sushi for tonight",
     "Where should I go next based on my travel history?",
     "Plan a weekend getaway for under $500",
-    "What's a hidden gem similar to my favorite trips?",
-    "Best time to visit Japan?",
-    "How can I travel more sustainably?",
+    "What's a hidden gem similar to my favorite trips?"
 ];
 
 export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
@@ -26,6 +26,7 @@ export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
     ]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showCheckout, setShowCheckout] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -54,7 +55,12 @@ export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
 
         try {
             const history = messages.map(m => ({ role: m.role, content: m.content }));
-            const response = await askJules(text, locations, profile, history);
+            let response = await askJules(text, locations, profile, history);
+
+            // VC Pitch Mock: Auto-execution trigger for voice haggling
+            if (text.toLowerCase().includes('book a table') || text.toLowerCase().includes('tokyo sushi')) {
+                response = "VOICE_HAGGLE_TRIGGER: Initiating local voice call to Saito Sushi (Local Time: 19:42 JST)...";
+            }
 
             const julesMessage: JulesMessage = {
                 id: crypto.randomUUID(),
@@ -86,7 +92,11 @@ export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-180px)] max-h-[600px]">
+        <div className="flex flex-col h-[calc(100vh-180px)] max-h-[600px] relative">
+            <NativeCheckoutModal
+                isOpen={showCheckout}
+                onClose={() => setShowCheckout(false)}
+            />
             {/* Header */}
             <div className="flex items-center gap-4 pb-4 border-b border-[#2c3440]">
                 <div className="w-12 h-12 bg-gradient-to-br from-[#00e054] to-[#40bcf4] rounded-full flex items-center justify-center shadow-lg shadow-[#00e054]/20">
@@ -122,14 +132,43 @@ export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
                             ? 'bg-[#1b2228] border border-[#2c3440] text-[#def]'
                             : 'bg-[#00e054]/20 border border-[#00e054]/30 text-white'
                             }`}>
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+
+                            {message.content.startsWith('VOICE_HAGGLE_TRIGGER:') ? (
+                                <div className="space-y-3 min-w-[260px]">
+                                    <p className="text-xs font-bold text-[#bc1888] flex items-center gap-2">
+                                        <i className="fas fa-phone-volume animate-pulse"></i>
+                                        {message.content.replace('VOICE_HAGGLE_TRIGGER:', '').trim()}
+                                    </p>
+                                    <div className="bg-[#0a0a0b] border border-[#2c3440] p-4 rounded-lg flex flex-col items-center gap-4 shadow-inner">
+                                        <div className="flex items-center justify-center gap-1.5 h-10 w-full">
+                                            {[...Array(16)].map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="w-1.5 bg-[#bc1888] rounded-full animate-pulse shadow-[0_0_10px_rgba(188,24,136,0.6)]"
+                                                    style={{
+                                                        height: `${Math.max(20, Math.random() * 100)}%`,
+                                                        animationDelay: `-${Math.random() * 1}s`,
+                                                        animationDuration: `${0.4 + Math.random() * 0.4}s`
+                                                    }}
+                                                ></div>
+                                            ))}
+                                        </div>
+                                        <div className="text-[10px] text-[#567] font-mono text-center space-y-1 w-full">
+                                            <p className="text-white truncate">"もしもし、今夜2名様の予約..."</p>
+                                            <p className="text-[#00e054] truncate">(Hello, could I make a reservation...)</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                            )}
 
                             {/* VC Pitch: Affiliate Monetization Demo */}
                             {message.role === 'jules' && message.content.length > 200 && (
                                 <button
                                     onClick={() => {
-                                        (window as any).posthog?.capture('expedia_booking_clicked');
-                                        window.open('https://www.expedia.com', '_blank');
+                                        (window as any).posthog?.capture('expedia_booking_intent_clicked');
+                                        setShowCheckout(true);
                                     }}
                                     className="mt-2 w-full flex items-center justify-center gap-2 bg-[#FBD315]/10 hover:bg-[#FBD315]/20 text-[#FBD315] border border-[#FBD315]/30 px-4 py-2 rounded-lg transition-colors text-xs font-bold"
                                 >

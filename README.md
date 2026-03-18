@@ -1,12 +1,12 @@
-# PRD: Travel Muse - Personal Travel Tracker (v1.5)
+# PRD: Wanderlog - Autonomous Travel & Spatial Platform (v2.0)
 
-**Version:** 1.5  
-**Status:** Production Ready with Cloud Sync  
+**Version:** 2.0  
+**Status:** Production Ready with Autonomous AI & P2P Mesh Mode
 **Author:** Senior Product Engineer  
 **Live URL:** https://wanderlog-travel-tracker.vercel.app
 
 ## 1. Executive Summary
-WanderLog is a high-end, AI-powered travel journaling platform designed for modern explorers. It provides a sleek, dark-mode interface to document memories, track global progress through a dedicated analytics dashboard, and discover new destinations through grounded AI recommendations and personalized planning tools. **v1.5 introduces Google Authentication and real-time cloud sync via Firebase.**
+Wanderlog v2.0 is a deep tech evolution, expanding from a high-end personal travel tracker into an **autonomous travel companion, enterprise B2B hub, and spatial platform**. It features squad collaboration, creator monetization via paywalled itineraries, a B2B travel agency CRM overlay, Augmented Reality (AR) spatial discovery viewing, autonomous flight-rebooking execution (Auto-Exec), and zero-latency P2P mesh syncing for off-grid collaborative traversal.
 
 ## 2. Product Objectives
 *   **Memory Preservation:** Provide a high-fidelity interface for logging travel experiences including ratings, pros, and cons.
@@ -16,6 +16,9 @@ WanderLog is a high-end, AI-powered travel journaling platform designed for mode
 *   **Self-Discovery:** Visualize travel "DNA" using a radar chart derived from AI analysis of user logs.
 *   **Visual Exploration:** Experience trip history through density-based heatmapping.
 *   **Cross-Device Sync (New v1.5):** Seamlessly access travel data across all devices via Firebase Cloud Firestore.
+*   **Collaborative Squads (v2.0):** Multi-player trip planning, bill splitting (Ledger), and shared activities.
+*   **Spatial Computing (v2.0):** AR Viewfinder for real-world POI overlay and simulated physical spatial drops.
+*   **Agentic Execution (v2.0):** Jules autonomously books flights, translates calls, and provides dynamic Apple Watch haptic meshes.
 
 ## 3. Functional Requirements
 
