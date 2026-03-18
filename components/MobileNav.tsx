@@ -9,6 +9,7 @@ const navItems = [
     { id: 'history', label: 'Home', icon: 'fa-home' },
     { id: 'discovery', label: 'Explore', icon: 'fa-compass' },
     { id: 'jules', label: 'Jules', icon: 'fa-robot' },
+    { id: 'squad', label: 'Squad', icon: 'fa-users' },
     { id: 'profile', label: 'Profile', icon: 'fa-user' },
 ];
 

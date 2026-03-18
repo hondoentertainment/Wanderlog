@@ -33,12 +33,42 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData
       if (prefilledData.likes) setLikes(prev => [...new Set([...prev, ...(prefilledData.likes || [])])]);
     }
   }, [prefilledData]);
-  const [endDate, setEndDate] = useState('');
-  const [companions, setCompanions] = useState<CompanionType[]>([]);
-  const [isScanning, setIsScanning] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Draft persistence
+  useEffect(() => {
+    if (prefilledData) return; // Don't load draft if we have AI prefill
+
+    const draftKey = 'location_form_draft';
+    const draftStr = localStorage.getItem(draftKey);
+    if (draftStr) {
+      try {
+        const draft = JSON.parse(draftStr);
+        if (draft.name) setName(draft.name);
+        if (draft.type) setType(draft.type);
+        if (draft.rating) setRating(draft.rating);
+        if (draft.likes) setLikes(draft.likes);
+        if (draft.dislikes) setDislikes(draft.dislikes);
+        if (draft.date) setDate(draft.date);
+        if (draft.endDate) setEndDate(draft.endDate);
+        if (draft.companions) setCompanions(draft.companions);
+      } catch (e) {
+        console.error('Failed to parse form draft', e);
+      }
+    }
+  }, [prefilledData]);
+
+  useEffect(() => {
+    // Only save draft if user has typed something
+    if (!name.trim() && likes.length === 0 && dislikes.length === 0 && companions.length === 0) return;
+
+    const draft = {
+      name, type, rating, likes, dislikes, date, endDate, companions
+    };
+    localStorage.setItem('location_form_draft', JSON.stringify(draft));
+  }, [name, type, rating, likes, dislikes, date, endDate, companions]);
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -191,6 +221,9 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData
         companions: companions.length > 0 ? companions : undefined,
         photoUrls: photoUrls.length > 0 ? photoUrls : undefined
       });
+
+      // Clear draft on successful submit
+      localStorage.removeItem('location_form_draft');
 
       setName('');
       setLikes([]);

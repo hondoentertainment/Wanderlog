@@ -16,6 +16,21 @@ const getAI = (): GoogleGenAI => {
   return aiInstance;
 };
 
+// Simple In-Memory Cache for AI Responses
+const AI_CACHE = new Map<string, { result: any; timestamp: number }>();
+
+const getCachedResponse = <T>(key: string, ttlMinutes = 60): T | null => {
+  const cached = AI_CACHE.get(key);
+  if (cached && Date.now() - cached.timestamp < ttlMinutes * 60 * 1000) {
+    return cached.result as T;
+  }
+  return null;
+};
+
+const cacheResponse = (key: string, result: any) => {
+  AI_CACHE.set(key, { result, timestamp: Date.now() });
+};
+
 export const getAIRecommendations = async (
   visitedLocations: TravelLocation[],
   profile: UserProfile,
@@ -31,6 +46,10 @@ export const getAIRecommendations = async (
   ).join('\n');
 
   const vibePrompt = vibe ? `Current User Vibe: ${vibe}. Prioritize recommendations that fit this mood.` : '';
+
+  const cacheKey = `recs_${JSON.stringify(profile.travelStyle)}_${vibe}_${historyText.length}_${coords?.latitude}_${coords?.longitude}`;
+  const cached = getCachedResponse<AIRecommendation[]>(cacheKey);
+  if (cached) return cached;
 
   const prompt = `Based on my travel profile and history, recommend exactly 3 new states or countries I should visit.
   
@@ -69,10 +88,13 @@ export const getAIRecommendations = async (
     });
 
     const recs = JSON.parse(response.text || '[]');
-    return recs.map((r: any) => ({
+    const finalRecs = recs.map((r: any) => ({
       ...r,
       type: r.type === 'state' ? LocationType.STATE : LocationType.COUNTRY
     })).slice(0, 3);
+
+    cacheResponse(cacheKey, finalRecs);
+    return finalRecs;
   } catch (error) {
     console.error("Error generating recommendations:", error);
     return [];
@@ -121,6 +143,10 @@ export const getTravelMuseInsights = async (
     `Location: ${loc.name}. Rating: ${loc.rating}/5. Likes: ${loc.likes.join(', ')}. Dislikes: ${loc.dislikes.join(', ')}.`
   ).join('\n');
 
+  const cacheKey = `muse_${historyText.length}_${JSON.stringify(profile.travelStyle)}_${coords?.latitude}_${coords?.longitude}`;
+  const cached = getCachedResponse<TravelMuseInsight[]>(cacheKey, 120); // 2 hour cache for insights
+  if (cached) return cached;
+
   const prompt = `Analyze my travel history and profile to find 2 deep patterns and 1 'hidden gem' nearby (if location provided) or globally that matches my specific interests.
   
   My History:
@@ -156,10 +182,13 @@ export const getTravelMuseInsights = async (
     });
 
     const insights = JSON.parse(response.text || '[]');
-    return insights.map((ins: any) => ({
+    const finalInsights = insights.map((ins: any) => ({
       ...ins,
       id: crypto.randomUUID()
     }));
+
+    cacheResponse(cacheKey, finalInsights);
+    return finalInsights;
   } catch (error) {
     console.error("Travel Muse analysis failed", error);
     return [];
@@ -254,6 +283,10 @@ export const performSemanticSearch = async (query: string, locations: TravelLoca
       type: 'trip'
     }))
   };
+
+  const cacheKey = `semantic_${query}_${locations.length}_${squadTrips.length}`;
+  const cached = getCachedResponse<string[]>(cacheKey, 5); // 5 min cache for searches
+  if (cached) return cached;
 
   const prompt = `Given the following travel data: ${JSON.stringify(context)}
   Find the IDs of the memories (locations) or collaborative trips that best match the user's natural language search query: "${query}"
@@ -356,6 +389,10 @@ export const getDiscoveryContext = async (
 
 export const generateTravelDNA = async (visitedLocations: TravelLocation[], profile: UserProfile): Promise<TravelDNA> => {
   const historyText = visitedLocations.map(loc => `Loc: ${loc.name}. Likes: ${loc.likes.join(', ')}`).join('\n');
+  const cacheKey = `dna_${historyText.length}_${JSON.stringify(profile.travelStyle)}`;
+  const cached = getCachedResponse<TravelDNA>(cacheKey, 24 * 60); // 24 hour cache
+  if (cached) return cached;
+
   const prompt = `Score Travel DNA (0-100) for axes: Nature, Culture, Adventure, Relaxation, Food, Urban based on history:\n${historyText}\nRespond in JSON.`;
 
   try {
@@ -378,7 +415,9 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
         }
       },
     });
-    return JSON.parse(response.text || '{"nature": 50, "culture": 50, "adventure": 50, "relaxation": 50, "food": 50, "urban": 50}');
+    const result = JSON.parse(response.text || '{"nature": 50, "culture": 50, "adventure": 50, "relaxation": 50, "food": 50, "urban": 50}');
+    cacheResponse(cacheKey, result);
+    return result;
   } catch (error) {
     return { nature: 50, culture: 50, adventure: 50, relaxation: 50, food: 50, urban: 50 };
   }
@@ -530,17 +569,25 @@ Instructions:
 Respond as Jules:`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
+    // VC Pitch: Serverless API Architecture (Protects API Key)
+    const res = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        message: prompt,
+      })
     });
 
-    return response.text || "I'm having trouble thinking right now. Give me a moment and try again!";
+    if (!res.ok) {
+      throw new Error("Failed to connect to AI Service");
+    }
+
+    const data = await res.json();
+    return data.response || "I'm having trouble thinking right now. Give me a moment and try again!";
   } catch (error) {
-    console.error("Error in askJules:", error);
+    console.error("Error in askJules (Serverless):", error);
     return "Oops! I seem to be having a connection issue. Please try again in a moment. ✈️";
   }
 };

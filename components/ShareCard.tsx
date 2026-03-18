@@ -136,14 +136,22 @@ export const ShareCard: React.FC<ShareCardProps> = ({
             if (showStats && stats) {
                 ctx.fillStyle = '#00e054';
                 ctx.font = 'bold 14px sans-serif';
-                ctx.fillText(`📊 ${stats.countries} Countries • ${stats.states} States`, 40, 360);
+                ctx.fillText(`📊 ${stats.countries} Countries • ${stats.states} States`, 40, 340);
             }
+
+            // VC Pitch: Viral Growth Watermark
+            ctx.fillStyle = '#567';
+            ctx.font = 'italic 12px sans-serif';
+            ctx.fillText('⚡ Get your Travel DNA at wanderlog.io/dna', 40, 380);
 
             // Download
             const link = document.createElement('a');
             link.download = `wanderlog-${trip.name.toLowerCase().replace(/\s+/g, '-')}.png`;
             link.href = canvas.toDataURL();
             link.click();
+
+            // Track VC Viral Loop Metric
+            (window as any).posthog?.capture('share_card_generated', { tripName: trip.name, type: trip.type });
         } finally {
             setIsGenerating(false);
         }

@@ -125,6 +125,13 @@ export const CollaborativeList: React.FC<CollaborativeListProps> = ({
         await collaborativeListService.shareWithUsers(listId, userIds, list.ownerId);
     };
 
+    const handleWhatsAppInvite = () => {
+        (window as any).posthog?.capture('whatsapp_invite_sent', { listId });
+        const text = `Hey! I'm planning ${list?.name || 'our next trip'} on Wanderlog. Join my SquadHub so we can build a bucket list together! 🌍✈️ wanderlog.io/squad/${listId}`;
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+        window.open(whatsappUrl, '_blank');
+    };
+
     const getSortedAndFilteredItems = useCallback(() => {
         let result = [...items];
 
@@ -234,9 +241,15 @@ export const CollaborativeList: React.FC<CollaborativeListProps> = ({
 
                 <div className="flex items-center gap-2">
                     {isOwner && (
-                        <Button variant="secondary" onClick={() => setShowShareModal(true)}>
-                            <i className="fas fa-user-plus" /> Share
-                        </Button>
+                        <>
+                            <Button variant="secondary" onClick={() => setShowShareModal(true)}>
+                                <i className="fas fa-user-plus" /> Share
+                            </Button>
+                            {/* VC Pitch: Viral Loop Hook */}
+                            <Button variant="secondary" onClick={handleWhatsAppInvite} className="!bg-[#25D366]/20 !text-[#25D366] !border-[#25D366]/50 hover:!bg-[#25D366] hover:!text-white border">
+                                <i className="fab fa-whatsapp" /> Invite
+                            </Button>
+                        </>
                     )}
                     {canEdit && (
                         <Button variant="primary" onClick={() => setIsAdding(true)}>
@@ -340,10 +353,10 @@ export const CollaborativeList: React.FC<CollaborativeListProps> = ({
                             <div
                                 key={item.id}
                                 className={`bg-[#1b2228] border rounded-lg p-4 transition-all ${item.status === 'visited'
-                                        ? 'border-[#00e054]/30'
-                                        : item.status === 'planned'
-                                            ? 'border-[#40bcf4]/30'
-                                            : 'border-[#2c3440] hover:border-[#456]'
+                                    ? 'border-[#00e054]/30'
+                                    : item.status === 'planned'
+                                        ? 'border-[#40bcf4]/30'
+                                        : 'border-[#2c3440] hover:border-[#456]'
                                     }`}
                             >
                                 <div className="flex items-start justify-between gap-4">
@@ -368,8 +381,8 @@ export const CollaborativeList: React.FC<CollaborativeListProps> = ({
                                                 onClick={() => handleVote(item.id, 'want')}
                                                 disabled={!canEdit}
                                                 className={`flex items-center gap-1.5 text-xs transition-colors ${userVote === 'want'
-                                                        ? 'text-[#00e054]'
-                                                        : 'text-[#567] hover:text-[#00e054]'
+                                                    ? 'text-[#00e054]'
+                                                    : 'text-[#567] hover:text-[#00e054]'
                                                     } ${!canEdit && 'opacity-50 cursor-not-allowed'}`}
                                             >
                                                 <i className={`${userVote === 'want' ? 'fas' : 'far'} fa-thumbs-up`} />
@@ -380,8 +393,8 @@ export const CollaborativeList: React.FC<CollaborativeListProps> = ({
                                                 onClick={() => handleVote(item.id, 'pass')}
                                                 disabled={!canEdit}
                                                 className={`flex items-center gap-1.5 text-xs transition-colors ${userVote === 'pass'
-                                                        ? 'text-red-500'
-                                                        : 'text-[#567] hover:text-red-500'
+                                                    ? 'text-red-500'
+                                                    : 'text-[#567] hover:text-red-500'
                                                     } ${!canEdit && 'opacity-50 cursor-not-allowed'}`}
                                             >
                                                 <i className={`${userVote === 'pass' ? 'fas' : 'far'} fa-thumbs-down`} />

@@ -174,7 +174,8 @@ const Header: React.FC<{
   onOmniImageUpload: (file: File) => void;
   onOmniVoiceTranscription?: (text: string) => void;
   isOmniLoading?: boolean;
-}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading }) => {
+  onSimulateAlert?: () => void;
+}> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading, onSimulateAlert }) => {
   const { logout, signInWithGoogle } = useAuth();
 
   return (
@@ -227,6 +228,18 @@ const Header: React.FC<{
               className="bg-white text-[#14181c] px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest hover:bg-[#00e054] transition-all"
             >
               Join Wanderlog
+            </button>
+          )}
+
+          {/* VC Demo Hook: Proactive Jules */}
+          {user && onSimulateAlert && (
+            <button
+              onClick={onSimulateAlert}
+              className="bg-[#00e054]/10 text-[#00e054] px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-[#00e054]/30 hover:bg-[#00e054] hover:text-[#14181c] transition-all ml-2"
+              title="Simulate Ambient AI Discovery Alert"
+            >
+              <i className="fas fa-bell mr-2"></i>
+              Demo Alert
             </button>
           )}
         </div>
@@ -584,6 +597,26 @@ const App: React.FC = () => {
     } catch (e) { } finally { setIsSearchingAI(false); }
   };
 
+  const handleSimulateAlert = () => {
+    // VC Demo: Simulate a proactive push notification based on DNA
+    const highestTrait = profile?.dna ?
+      Object.entries(profile.dna).sort(([, a], [, b]) => (b as number) - (a as number))[0][0] :
+      'culture';
+
+    const alerts = {
+      food: "🍣 Proximity Alert: You're 2 blocks from a Michelin-star omakase. Your Food DNA is 98%—want me to grab a 7 PM reservation?",
+      nature: "🌲 Weather Update: Tomorrow morning is perfect for the Hidden Waterfall trail you've been eyeing. Shall I add it to the itinerary?",
+      culture: "🏛️ Curator Note: The Louvre has a rare exhibit opening in 30 mins matching your Renaissance interest. Get tickets?",
+      adventure: "🌋 Spontaneous: A last-minute heli-skiing slot opened up for tomorrow based on your Chamonix log. Book it?",
+      relaxation: "💆‍♀️ Recharge: You've walked 12 miles today. There's a highly-rated onsen 5 minutes away. Routing you there?",
+      urban: "🏙️ Nightlife: The speakeasy you saved in your bucket list has a secret password tonight. Want it?"
+    };
+
+    const alertText = alerts[highestTrait as keyof typeof alerts] || alerts.culture;
+
+    showToast(alertText, 'success');
+  };
+
   if (!profile) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Initializing Profile...</div>;
 
   return (
@@ -598,6 +631,7 @@ const App: React.FC = () => {
         onOmniImageUpload={handleOmniImageUpload}
         onOmniVoiceTranscription={handleOmniVoiceTranscription}
         isOmniLoading={isSearchingAI}
+        onSimulateAlert={handleSimulateAlert}
       />
 
       <main className="max-w-7xl mx-auto px-6 pb-24 relative z-10">
@@ -858,6 +892,25 @@ const App: React.FC = () => {
                   ))}
                 </div>
               )}
+
+              {/* Timeline Flow */}
+              <div className="mt-24 mb-12 flex items-center gap-4">
+                <div className="w-8 h-8 rounded-full bg-[#00e054]/10 flex items-center justify-center">
+                  <i className="fas fa-route text-[#00e054] text-xs"></i>
+                </div>
+                <h3 className="text-xl font-black text-white tracking-tighter uppercase italic">Timeline</h3>
+              </div>
+              <Timeline
+                locations={locations}
+                onTravel={(loc) => {
+                  setSelectedLocationId(loc.id);
+                  setCurrentView('savedtrips');
+                }}
+                onShare={(loc) => {
+                  setShareModalTrip(loc);
+                  setShareModalOpen(true);
+                }}
+              />
             </div>
           )}
 

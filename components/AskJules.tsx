@@ -111,19 +111,34 @@ export const AskJules: React.FC<AskJulesProps> = ({ locations, profile }) => {
                     >
                         {/* Avatar */}
                         <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${message.role === 'jules'
-                                ? 'bg-gradient-to-br from-[#00e054] to-[#40bcf4]'
-                                : 'bg-[#ff8000]'
+                            ? 'bg-gradient-to-br from-[#00e054] to-[#40bcf4]'
+                            : 'bg-[#ff8000]'
                             }`}>
                             <i className={`fas ${message.role === 'jules' ? 'fa-robot' : 'fa-user'} text-white text-xs`}></i>
                         </div>
 
                         {/* Message Bubble */}
-                        <div className={`max-w-[80%] p-3 rounded-lg ${message.role === 'jules'
-                                ? 'bg-[#1b2228] border border-[#2c3440] text-[#def]'
-                                : 'bg-[#00e054]/20 border border-[#00e054]/30 text-white'
+                        <div className={`max-w-[80%] p-3 rounded-lg flex flex-col gap-3 ${message.role === 'jules'
+                            ? 'bg-[#1b2228] border border-[#2c3440] text-[#def]'
+                            : 'bg-[#00e054]/20 border border-[#00e054]/30 text-white'
                             }`}>
-                            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                            <p className="text-[9px] text-[#567] mt-2">
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+
+                            {/* VC Pitch: Affiliate Monetization Demo */}
+                            {message.role === 'jules' && message.content.length > 200 && (
+                                <button
+                                    onClick={() => {
+                                        (window as any).posthog?.capture('expedia_booking_clicked');
+                                        window.open('https://www.expedia.com', '_blank');
+                                    }}
+                                    className="mt-2 w-full flex items-center justify-center gap-2 bg-[#FBD315]/10 hover:bg-[#FBD315]/20 text-[#FBD315] border border-[#FBD315]/30 px-4 py-2 rounded-lg transition-colors text-xs font-bold"
+                                >
+                                    <i className="fas fa-plane-departure"></i>
+                                    Book this Trip on Expedia (Avg. $1,250)
+                                </button>
+                            )}
+
+                            <p className="text-[9px] text-[#567] mt-1">
                                 {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                         </div>
