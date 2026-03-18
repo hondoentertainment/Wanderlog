@@ -33,6 +33,7 @@ const CreatorDashboard = lazy(() => import('./components/CreatorDashboard').then
 const AgencyPortal = lazy(() => import('./components/AgencyPortal').then(m => ({ default: m.AgencyPortal })));
 const ARViewfinder = lazy(() => import('./components/ARViewfinder').then(m => ({ default: m.ARViewfinder })));
 const AutoExecutor = lazy(() => import('./components/AutoExecutor').then(m => ({ default: m.AutoExecutor })));
+const RwaHotelInvest = lazy(() => import('./components/RwaHotelInvest').then(m => ({ default: m.RwaHotelInvest })));
 
 import { Button } from './components/Button';
 import { StarRating } from './components/StarRating';
@@ -350,6 +351,7 @@ const App: React.FC = () => {
   const [showARViewfinder, setShowARViewfinder] = useState(false);
   const [showAutoExec, setShowAutoExec] = useState(false);
   const [showWatchHUD, setShowWatchHUD] = useState(false);
+  const [showRwaInvest, setShowRwaInvest] = useState<TravelLocation | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
@@ -703,6 +705,11 @@ const App: React.FC = () => {
           <AutoExecutor onClose={() => setShowAutoExec(false)} />
         </Suspense>
       )}
+      {showRwaInvest && (
+        <Suspense fallback={null}>
+          <RwaHotelInvest location={showRwaInvest} onClose={() => setShowRwaInvest(null)} />
+        </Suspense>
+      )}
       {showWatchHUD && (
         <div className="fixed bottom-4 right-4 z-[99] bg-[#0a0a0b] border-[6px] border-[#1b2228] p-3 rounded-[32px] w-40 h-48 flex flex-col items-center justify-center shadow-[0_0_40px_rgba(0,0,0,0.8)] animate-in slide-in-from-right duration-500 cursor-pointer group hover:scale-105 transition-transform" onClick={() => setShowWatchHUD(false)}>
           <div className="absolute top-1 right-1 w-1.5 h-6 bg-[#2c3440] rounded-l-full"></div>
@@ -1022,6 +1029,7 @@ const App: React.FC = () => {
                   setShareModalTrip(loc);
                   setShareModalOpen(true);
                 }}
+                onInvest={(loc) => setShowRwaInvest(loc)}
               />
             </div>
           )}
@@ -1039,7 +1047,11 @@ const App: React.FC = () => {
                     const loc = locations.find(l => l.id === selectedLocationId);
                     if (!loc) return null;
                     return loc.isVisited ? (
-                      <Timeline location={loc} />
+                      <Timeline
+                        locations={[loc]}
+                        onTravel={() => { }}
+                        onInvest={(l) => setShowRwaInvest(l)}
+                      />
                     ) : (
                       <DiscoveryIntelligence
                         location={loc}

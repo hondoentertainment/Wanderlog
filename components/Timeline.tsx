@@ -8,9 +8,10 @@ interface TimelineProps {
   onTravel: (loc: TravelLocation) => void;
   onShare?: (loc: TravelLocation) => void;
   onSimulateSync?: () => void;
+  onInvest?: (loc: TravelLocation) => void;
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare, onSimulateSync }) => {
+export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare, onSimulateSync, onInvest }) => {
   const sorted = [...locations].sort((a, b) => new Date(a.dateVisited).getTime() - new Date(b.dateVisited).getTime());
 
   if (locations.length === 0) return null;
@@ -72,16 +73,30 @@ export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare
                   </div>
                 )}
 
-                {/* Share Icon Overlay */}
-                {onShare && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onShare(loc); }}
-                    className="mt-3 text-[#567] hover:text-[#00e054] transition-colors"
-                    title="Share Trip"
-                  >
-                    <i className="fas fa-share-alt text-[10px]"></i>
-                  </button>
-                )}
+                {/* Share & Invest Icons */}
+                <div className="mt-3 flex gap-3 z-20">
+                  {onShare && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onShare(loc); }}
+                      className="text-[#567] hover:text-[#00e054] transition-colors"
+                      title="Share Trip"
+                    >
+                      <i className="fas fa-share-alt text-[10px]"></i>
+                    </button>
+                  )}
+                  {onInvest && (loc.rating >= 4 || loc.name.toLowerCase().includes('villa') || loc.name.toLowerCase().includes('hotel')) && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onInvest(loc); }}
+                      className="text-[#ffbb00] hover:text-[#00e054] transition-colors relative group/invest"
+                      title="Fractional Stake Available"
+                    >
+                      <i className="fas fa-gem text-[10px] animate-pulse"></i>
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 opacity-0 group-hover/invest:opacity-100 transition-opacity bg-[#ffbb00] text-[#14181c] text-[8px] font-black uppercase px-2 py-0.5 rounded pointer-events-none tracking-widest whitespace-nowrap z-50">
+                        RWA Asset
+                      </div>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           ))}
