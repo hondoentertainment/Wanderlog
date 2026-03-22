@@ -1,7 +1,19 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import { signOut } from 'firebase/auth';
 import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, TravelMuseInsight, SquadTrip } from '../types';
-import { loadAppData, saveToCloud } from '../services/storageService';
-import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights } from '../services/geminiService';
+import { STORAGE_KEY } from '../constants';
+import { auth } from '../services/firebaseConfig';
+import { deleteUserCloudData, loadAppData, saveToCloud } from '../services/storageService';
+import {
+  exportItineraryToICS,
+  generateItinerary,
+  generateTravelDNA,
+  geocodeLocation,
+  getGeminiErrorMessage,
+  getLocationDetails,
+  getTravelMuseInsights,
+  performSemanticSearch,
+} from '../services/geminiService';
 import { useToast } from '../components/Toast';
 
 export interface TravelDataContextType {
@@ -66,6 +78,7 @@ export interface TravelDataContextType {
   updateProfile: (profile: UserProfile) => void;
   addToBucketList: (item: string) => void;
   removeFromBucketList: (item: string) => void;
+  deleteAccount: () => Promise<void>;
 
   // Map helpers
   setLocations: React.Dispatch<React.SetStateAction<TravelLocation[]>>;
@@ -115,6 +128,8 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
       }
     };
     fetchData();
+    // Mount / userId only — showToast is stable for our purposes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   // Debounced Save to Cloud
@@ -145,7 +160,9 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     if (navigator.share) {
       try {
         await navigator.share({ title: `Trip to ${loc.name}`, text, url: window.location.href });
-      } catch (err) { }
+      } catch {
+        /* user dismissed share sheet */
+      }
     } else {
       await navigator.clipboard.writeText(text);
       showToast('Summary copied to clipboard!', 'info');
@@ -162,7 +179,9 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
           setLocations(prev => prev.map(l => l.id === loc.id ? { ...l, coordinates: coords } : l));
           setActiveMap({ id: loc.id, name: loc.name, coords });
         }
-      } catch (e) { }
+      } catch (err) {
+        showToast(getGeminiErrorMessage(err), 'error');
+      }
     }
   };
 
@@ -177,8 +196,8 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     try {
       const ids = await performSemanticSearch(semanticSearchQuery, locations);
       setSemanticResultIds(ids);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
     } finally {
       setIsSearchingAI(false);
     }
@@ -190,8 +209,8 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     try {
       const dna = await generateTravelDNA(locations, profile);
       setProfile({ ...profile, dna });
-    } catch (e) {
-      console.error("DNA Refresh failed", e);
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
     } finally {
       setLoadingDNA(false);
     }
@@ -207,13 +226,15 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
       });
       currentCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-    } catch (e) { }
+    } catch {
+      /* geolocation denied or timeout */
+    }
 
     try {
       const insights = await getTravelMuseInsights(locations, profile, currentCoords);
       setMuseInsights(insights);
-    } catch (e) {
-      console.error("Muse refresh failed", e);
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
     } finally {
       setIsLoadingMuse(false);
     }
@@ -229,7 +250,9 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     try {
       const details = await getLocationDetails(rec.name, rec.type);
       setSavedRecommendations(prev => prev.map(item => item.id === newId ? { ...item, ...details } : item));
-    } catch (e) { }
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
+    }
   };
 
   const generateItineraryForRec = async (rec: SavedRecommendation) => {
@@ -238,8 +261,8 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     try {
       const itinerary = await generateItinerary(rec.name, rec.type, rec.description || '', rec.attractions || []);
       setSavedRecommendations(prev => prev.map(item => item.id === rec.id ? { ...item, itinerary } : item));
-    } catch (e) {
-      showToast("AI planning failed.", "error");
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
     } finally {
       setLoadingItinerary(null);
     }
@@ -276,7 +299,7 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
         };
         setSquadTrips(prev => [...prev, newTrip]);
       }
-    } catch (e) {
+    } catch {
       showToast("Invalid Squad Join Code.", "error");
     }
   };
@@ -309,6 +332,18 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     }
   };
 
+  const deleteAccount = useCallback(async () => {
+    if (!window.confirm('Delete your account and all cloud data? This cannot be undone.')) return;
+    try {
+      await deleteUserCloudData(userId);
+      localStorage.removeItem(STORAGE_KEY);
+      await signOut(auth);
+      showToast('Your cloud data was removed.', 'info');
+    } catch {
+      showToast('Could not fully delete account. Try again.', 'error');
+    }
+  }, [userId, showToast]);
+
   // --- Filtered Locations ---
 
   const filteredLocations = useMemo(() => {
@@ -338,7 +373,7 @@ export const TravelDataProvider: React.FC<{ userId: string; children: React.Reac
     semanticSearch, refreshDNA, refreshMuse,
     saveRecommendation, generateItineraryForRec, exportItinerary,
     createSquad, joinSquad, updateSquad, deleteSquad,
-    updateProfile, addToBucketList, removeFromBucketList,
+    updateProfile, addToBucketList, removeFromBucketList, deleteAccount,
     setLocations,
   };
 

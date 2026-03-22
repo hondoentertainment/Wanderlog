@@ -1,15 +1,56 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  writeBatch,
+} from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
+import type { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
 import { STORAGE_KEY } from '../constants';
+import { DEFAULT_PROFILE, normalizeParsedStorage, type StorageDataShape } from './storageNormalize';
 
-const DEFAULT_PROFILE: UserProfile = {
-  name: 'Traveler',
-  bio: 'Exploring the world one step at a time.',
-  travelStyle: ['Adventure'],
-  bucketList: [],
-  customTravelStyles: []
-};
+export { DEFAULT_PROFILE } from './storageNormalize';
+
+/** Warn when user metadata (without locations) approaches Firestore’s ~1 MiB doc limit */
+export const META_DOC_WARNING_BYTES = 750_000;
+
+export function estimateMetaPayloadBytes(meta: Omit<StorageData, 'locations'>): number {
+  return new Blob([
+    JSON.stringify({
+      profile: meta.profile,
+      savedRecommendations: meta.savedRecommendations,
+      squadTrips: meta.squadTrips,
+    }),
+  ]).size;
+}
+
+function storageDataFromParts(parts: StorageDataShape): StorageData {
+  return {
+    locations: parts.locations,
+    profile: parts.profile || DEFAULT_PROFILE,
+    savedRecommendations: parts.savedRecommendations || [],
+    squadTrips: parts.squadTrips || [],
+  };
+}
+
+async function migrateLegacyLocationsToSubcollection(userId: string, locations: TravelLocation[]): Promise<void> {
+  let batch = writeBatch(db);
+  let n = 0;
+  for (const loc of locations) {
+    batch.set(doc(db, 'users', userId, 'locations', loc.id), loc);
+    n++;
+    if (n >= 400) {
+      await batch.commit();
+      batch = writeBatch(db);
+      n = 0;
+    }
+  }
+  if (n > 0) await batch.commit();
+}
 
 // --- Local Storage (Legacy/Fallback) ---
 
@@ -23,75 +64,136 @@ export const saveLocalData = (
 };
 
 export const loadLocalData = (): StorageData => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) return { locations: [], profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return storageDataFromParts(normalizeParsedStorage(null));
   try {
-    const parsed = JSON.parse(data);
-    return {
-      locations: parsed.locations || [],
-      profile: parsed.profile || DEFAULT_PROFILE,
-      savedRecommendations: parsed.savedRecommendations || [],
-      squadTrips: parsed.squadTrips || []
-    };
+    return storageDataFromParts(normalizeParsedStorage(JSON.parse(raw)));
   } catch (e) {
-    console.error("Failed to parse storage data", e);
-    return { locations: [], profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };
+    console.error('Failed to parse storage data', e);
+    return storageDataFromParts(normalizeParsedStorage(null));
   }
 };
 
-// --- Cloud Storage (Firestore) ---
+// --- Cloud Storage (Firestore): metadata on user doc, locations in subcollection ---
 
 export const saveToCloud = async (userId: string, data: StorageData): Promise<void> => {
   try {
+    const meta: Omit<StorageData, 'locations'> = {
+      profile: data.profile,
+      savedRecommendations: data.savedRecommendations,
+      squadTrips: data.squadTrips,
+    };
+    const metaBytes = estimateMetaPayloadBytes(meta);
+    if (metaBytes > META_DOC_WARNING_BYTES) {
+      console.warn('[Wanderlog] User metadata payload is very large', metaBytes);
+    }
+
     const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, data, { merge: true });
-    // Also update local cache for offline support/faster load next time? 
-    // Actually, keeping local storage in sync is good as backup, but Firestore has its own cache.
-    // For now, let's keep local storage as a mirror.
+    await setDoc(
+      userRef,
+      {
+        profile: data.profile,
+        savedRecommendations: data.savedRecommendations,
+        squadTrips: data.squadTrips,
+        _schemaV2: true,
+        locations: deleteField(),
+      },
+      { merge: true }
+    );
+
+    const locCol = collection(db, 'users', userId, 'locations');
+    const existing = await getDocs(locCol);
+    const currentIds = new Set(data.locations.map((l) => l.id));
+    for (const d of existing.docs) {
+      if (!currentIds.has(d.id)) {
+        await deleteDoc(d.ref);
+      }
+    }
+
+    let batch = writeBatch(db);
+    let count = 0;
+    for (const loc of data.locations) {
+      batch.set(doc(db, 'users', userId, 'locations', loc.id), loc);
+      count++;
+      if (count >= 400) {
+        await batch.commit();
+        batch = writeBatch(db);
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+
     saveLocalData(data.locations, data.profile, data.savedRecommendations, data.squadTrips);
   } catch (error) {
-    console.error("Error saving to cloud:", error);
-    // Fallback to local
+    console.error('Error saving to cloud:', error);
     saveLocalData(data.locations, data.profile, data.savedRecommendations, data.squadTrips);
   }
 };
 
 export const loadAppData = async (userId?: string): Promise<StorageData> => {
-  // If no user, load local
   if (!userId) {
     return loadLocalData();
   }
 
   try {
-    // Try cloud first
     const userRef = doc(db, 'users', userId);
-    const docSnap = await getDoc(userRef);
+    const locCol = collection(db, 'users', userId, 'locations');
+    const [userSnap, locSnap] = await Promise.all([getDoc(userRef), getDocs(locCol)]);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data() as StorageData;
-      // Validate schema/defaults
-      return {
-        locations: data.locations || [],
-        profile: data.profile || DEFAULT_PROFILE,
-        savedRecommendations: data.savedRecommendations || [],
-        squadTrips: data.squadTrips || []
-      };
-    } else {
-      // User exists but no data in cloud -> Check local migration
+    if (!userSnap.exists()) {
       const localData = loadLocalData();
       if (localData.locations.length > 0 || localData.profile.name !== 'Traveler') {
-        // We have local data! Migrate it.
-        console.log("Migrating local data to cloud...");
+        console.log('Migrating local data to cloud...');
         await saveToCloud(userId, localData);
         return localData;
       }
-      return { locations: [], profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };
+      return storageDataFromParts(normalizeParsedStorage(null));
     }
+
+    const userData = userSnap.data() as Record<string, unknown>;
+    let locations: TravelLocation[] = [];
+    if (!locSnap.empty) {
+      locations = locSnap.docs.map((d) => d.data() as TravelLocation);
+    } else {
+      const legacy = userData.locations;
+      locations = Array.isArray(legacy) ? (legacy as TravelLocation[]) : [];
+      if (locations.length > 0) {
+        await migrateLegacyLocationsToSubcollection(userId, locations);
+        await setDoc(userRef, { locations: deleteField(), _schemaV2: true }, { merge: true });
+      }
+    }
+
+    const merged = storageDataFromParts({
+      locations,
+      profile: (userData.profile as UserProfile) || DEFAULT_PROFILE,
+      savedRecommendations: Array.isArray(userData.savedRecommendations)
+        ? (userData.savedRecommendations as SavedRecommendation[])
+        : [],
+      squadTrips: Array.isArray(userData.squadTrips) ? (userData.squadTrips as SquadTrip[]) : [],
+    });
+    return merged;
   } catch (error) {
-    console.error("Error loading from cloud:", error);
-    return loadLocalData(); // Fallback to local on error
+    console.error('Error loading from cloud:', error);
+    return loadLocalData();
   }
 };
 
-// Backwards compatibility alias if needed, but we should update App.tsx to use saveToCloud
+export async function deleteUserCloudData(userId: string): Promise<void> {
+  const locCol = collection(db, 'users', userId, 'locations');
+  const snap = await getDocs(locCol);
+  let batch = writeBatch(db);
+  let n = 0;
+  for (const d of snap.docs) {
+    batch.delete(d.ref);
+    n++;
+    if (n >= 400) {
+      await batch.commit();
+      batch = writeBatch(db);
+      n = 0;
+    }
+  }
+  if (n > 0) await batch.commit();
+  await deleteDoc(doc(db, 'users', userId));
+}
+
 export const saveAppData = saveLocalData;

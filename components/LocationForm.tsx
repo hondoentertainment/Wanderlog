@@ -4,13 +4,15 @@ import { LocationType, TravelLocation, CompanionType } from '../types';
 import { US_STATES, COMMON_COUNTRIES } from '../constants';
 import { Button } from './Button';
 import { StarRating } from './StarRating';
-import { analyzeLogImage } from '../services/geminiService';
+import { analyzeLogImage, getGeminiErrorMessage } from '../services/geminiService';
+import { useToast } from './Toast';
 
 interface LocationFormProps {
   onAdd: (location: Omit<TravelLocation, 'id'>) => void;
 }
 
 export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
+  const { showToast } = useToast();
   const [name, setName] = useState('');
   const [type, setType] = useState<LocationType>(LocationType.COUNTRY);
   const [rating, setRating] = useState(4);
@@ -60,21 +62,25 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
     if (!file) return;
 
     setIsScanning(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
         const base64 = (reader.result as string).split(',')[1];
         const extractedData = await analyzeLogImage(base64);
         if (extractedData.name) setName(extractedData.name);
         if (extractedData.dateVisited) setDate(extractedData.dateVisited);
-        if (extractedData.likes) setLikes(prev => [...new Set([...prev, ...(extractedData.likes || [])])]);
-      };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.error(err);
-    } finally {
+        if (extractedData.likes) setLikes((prev) => [...new Set([...prev, ...(extractedData.likes || [])])]);
+      } catch (err) {
+        showToast(getGeminiErrorMessage(err), 'error');
+      } finally {
+        setIsScanning(false);
+      }
+    };
+    reader.onerror = () => {
       setIsScanning(false);
-    }
+      showToast('Could not read that image.', 'error');
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddLike = (e: React.KeyboardEvent) => {

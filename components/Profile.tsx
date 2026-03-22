@@ -1,11 +1,12 @@
-
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { UserProfile } from '../types';
 import { Button } from './Button';
 
 interface ProfileProps {
   profile: UserProfile;
   onUpdate: (profile: UserProfile) => void;
+  onDeleteAccount: () => Promise<void>;
 }
 
 const PREDEFINED_TRAVEL_STYLES = [
@@ -18,7 +19,7 @@ const PREDEFINED_TRAVEL_STYLES = [
   'Van Life', 'Medical Tourism', 'Educational', 'Ancestry', 'Extreme Sports', 'Slow Travel'
 ].sort();
 
-export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
+export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate, onDeleteAccount }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedProfile, setEditedProfile] = useState<UserProfile>({
     ...profile,
@@ -291,9 +292,22 @@ export const Profile: React.FC<ProfileProps> = ({ profile, onUpdate }) => {
           </div>
         </div>
 
-        <div className="pt-6">
+        <div className="pt-6 space-y-3">
            <Button variant="primary" className="w-full !py-3" onClick={handleSave}>
               SAVE PROFILE
+           </Button>
+           <Link
+             to="/privacy"
+             className="block text-center text-[10px] font-black uppercase tracking-widest text-[#567] hover:text-[#40bcf4] transition-colors"
+           >
+             Privacy
+           </Link>
+           <Button
+             variant="ghost"
+             className="w-full !py-2 !text-[10px] !text-red-500 border border-red-500/30 hover:bg-red-500/10"
+             onClick={() => void onDeleteAccount()}
+           >
+             Delete account and cloud data
            </Button>
         </div>
       </div>

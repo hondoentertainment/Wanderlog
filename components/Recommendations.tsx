@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { AIRecommendation, TravelLocation, UserProfile, VibeType } from '../types';
-import { getAIRecommendations } from '../services/geminiService';
+import { getAIRecommendations, getGeminiErrorMessage } from '../services/geminiService';
 import { Button } from './Button';
 
 interface RecommendationsProps {
@@ -48,7 +48,7 @@ export const Recommendations: React.FC<RecommendationsProps> = ({
       const recs = await getAIRecommendations(visitedLocations, profile, coords, selectedVibe);
       setRecommendations(recs);
     } catch (err) {
-      setError("AI generation failed. Please check network.");
+      setError(getGeminiErrorMessage(err));
     } finally {
       setLoading(false);
     }

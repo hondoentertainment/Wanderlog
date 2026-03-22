@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TravelLocation, LocationType } from '../types';
+import { TravelLocation } from '../types';
 import { StarRating } from './StarRating';
 
 interface TripComparisonProps {
@@ -19,7 +19,7 @@ export const TripComparison: React.FC<TripComparisonProps> = ({ locations }) => 
         return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
     };
 
-    const ComparisonCard: React.FC<{ trip: TravelLocation | null; label: string; onSelect: (trip: TravelLocation) => void }> = ({ trip, label, onSelect }) => (
+    const ComparisonCard: React.FC<{ trip: TravelLocation | null; label: string; onSelect: (trip: TravelLocation | null) => void }> = ({ trip, label, onSelect }) => (
         <div className="flex-1 bg-[#1b2228] border border-[#2c3440] rounded-lg p-6">
             <label className="text-xs font-bold text-[#567] uppercase tracking-wider block mb-3">{label}</label>
 
@@ -42,7 +42,7 @@ export const TripComparison: React.FC<TripComparisonProps> = ({ locations }) => 
                     <div className="flex items-center justify-between">
                         <h3 className="text-2xl font-black text-white">{trip.name}</h3>
                         <button
-                            onClick={() => onSelect(null as any)}
+                            onClick={() => onSelect(null)}
                             className="text-xs text-[#567] hover:text-white"
                         >
                             Change

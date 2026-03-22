@@ -4,71 +4,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Track trips, travel DNA, AI recommendations, and squad planning in one personal travel journal.">
+    <meta property="og:title" content="Travel Muse — Personal Travel Journal">
+    <meta property="og:description" content="Track trips, travel DNA, AI recommendations, and squad planning in one place.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
     <title>Travel Muse - Personal Travel Journal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-
-        :root {
-            --lb-bg: #14181c;
-            --lb-surface: #1b2228;
-            --lb-surface-light: #2c3440;
-            --lb-text: #9ab;
-            --lb-text-bright: #def;
-            --lb-orange: #ff8000;
-            --lb-green: #00e054;
-            --lb-blue: #40bcf4;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--lb-bg);
-            color: var(--lb-text);
-        }
-
-        .leaflet-container {
-            width: 100%;
-            height: 100%;
-            border-radius: 4px;
-            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
-        }
-
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: var(--lb-bg);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--lb-surface-light);
-            border-radius: 4px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: #456;
-        }
-
-        /* Animation */
-        .fade-enter {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-
-        .fade-enter-active {
-            opacity: 1;
-            transform: translateY(0);
-            transition: all 300ms ease-out;
-        }
-    </style>
 
 </head>
 

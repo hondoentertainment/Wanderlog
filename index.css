@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --lb-bg: #14181c;
+  --lb-surface: #1b2228;
+  --lb-surface-light: #2c3440;
+  --lb-text: #9ab;
+  --lb-text-bright: #def;
+  --lb-orange: #ff8000;
+  --lb-green: #00e054;
+  --lb-blue: #40bcf4;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--lb-bg);
+  color: var(--lb-text);
+}
+
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--lb-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--lb-surface-light);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #456;
+}
+
+.fade-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.fade-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 300ms ease-out;
+}

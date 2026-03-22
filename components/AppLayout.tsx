@@ -1,9 +1,8 @@
 import React from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { MapModal } from './MapModal';
 import { MobileNav } from './MobileNav';
-import { UserProfile } from '../types';
 import { useTravelData } from '../contexts/TravelDataContext';
 
 const navItems = [
@@ -21,7 +20,6 @@ interface AppLayoutProps {
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ user }) => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { profile, activeMap, setActiveMap, locations, setLocations } = useTravelData();
 
   if (!profile) {

@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { SquadTrip, SquadMember } from '../types';
 import { Button } from './Button';
-import { getSquadActivitySuggestions } from '../services/geminiService';
+import { getGeminiErrorMessage, getSquadActivitySuggestions } from '../services/geminiService';
+import { useToast } from './Toast';
 
 interface SquadHubProps {
   trips: SquadTrip[];
@@ -13,6 +14,7 @@ interface SquadHubProps {
 }
 
 export const SquadHub: React.FC<SquadHubProps> = ({ trips, onCreate, onJoin, onUpdate, onDelete }) => {
+  const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
@@ -64,8 +66,8 @@ export const SquadHub: React.FC<SquadHubProps> = ({ trips, onCreate, onJoin, onU
       const suggestions = await getSquadActivitySuggestions(trip);
       const updated = { ...trip, items: [...new Set([...trip.items, ...suggestions])] };
       onUpdate(updated);
-    } catch (e) {
-      alert("Failed to get suggestions.");
+    } catch (err) {
+      showToast(getGeminiErrorMessage(err), 'error');
     } finally {
       setLoadingSuggestions(null);
     }

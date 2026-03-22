@@ -36,7 +36,7 @@ export const StatsCard: React.FC<StatsCardProps> = ({ locations, profile }) => {
 
         try {
             // Use html2canvas if available, otherwise just copy to clipboard
-            const html2canvas = (window as any).html2canvas;
+            const html2canvas = (window as unknown as { html2canvas?: (el: HTMLElement, opts: { backgroundColor: string | null; scale: number }) => Promise<HTMLCanvasElement> }).html2canvas;
             if (html2canvas) {
                 const canvas = await html2canvas(cardRef.current, {
                     backgroundColor: null,

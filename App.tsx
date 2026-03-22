@@ -14,6 +14,7 @@ const LazySquadHub = lazy(() => import('./components/SquadHub').then(m => ({ def
 const LazyBucketList = lazy(() => import('./components/BucketList').then(m => ({ default: m.BucketList })));
 const LazyTripComparison = lazy(() => import('./components/TripComparison').then(m => ({ default: m.TripComparison })));
 const LazyStatsCard = lazy(() => import('./components/StatsCard').then(m => ({ default: m.StatsCard })));
+const LazyPrivacy = lazy(() => import('./views/PrivacyView'));
 
 const RouteFallback = () => (
   <div className="flex items-center justify-center py-20">
@@ -32,9 +33,9 @@ function AddRoute() {
 }
 
 function ProfileRoute() {
-  const { profile, updateProfile } = useTravelData();
+  const { profile, updateProfile, deleteAccount } = useTravelData();
   if (!profile) return null;
-  return <LazyProfile profile={profile} onUpdate={updateProfile} />;
+  return <LazyProfile profile={profile} onUpdate={updateProfile} onDeleteAccount={deleteAccount} />;
 }
 
 function SquadRoute() {
@@ -121,6 +122,7 @@ const App: React.FC = () => {
             <Route path="/bucketlist" element={<Suspense fallback={<RouteFallback />}><BucketListRoute /></Suspense>} />
             <Route path="/compare" element={<Suspense fallback={<RouteFallback />}><CompareRoute /></Suspense>} />
             <Route path="/statscard" element={<Suspense fallback={<RouteFallback />}><StatsCardRoute /></Suspense>} />
+            <Route path="/privacy" element={<Suspense fallback={<RouteFallback />}><LazyPrivacy /></Suspense>} />
             <Route path="*" element={<Navigate to="/history" replace />} />
           </Route>
         </Routes>

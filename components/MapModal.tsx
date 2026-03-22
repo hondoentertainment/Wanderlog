@@ -1,4 +1,4 @@
-
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/ban-ts-comment -- Leaflet and leaflet.heat are global scripts */
 import React, { useEffect, useRef, useState } from 'react';
 import { Button } from './Button';
 import { TravelLocation } from '../types';

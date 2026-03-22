@@ -1,7 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import {
+  User,
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebaseConfig';
 import { useToast } from '../components/Toast';
+
+function prefersRedirectSignIn(): boolean {
+  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
 
 interface AuthContextType {
     user: User | null;
@@ -25,8 +36,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => unsubscribe();
     }, []);
 
+    useEffect(() => {
+        getRedirectResult(auth)
+            .then((result) => {
+                if (result?.user) {
+                    showToast('Welcome back to Travel Muse!', 'success');
+                }
+            })
+            .catch((err) => console.error('Redirect sign-in error', err));
+    }, [showToast]);
+
     const signInWithGoogle = async () => {
         try {
+            if (prefersRedirectSignIn()) {
+                await signInWithRedirect(auth, googleProvider);
+                return;
+            }
             await signInWithPopup(auth, googleProvider);
             showToast('Welcome back to Travel Muse!', 'success');
         } catch (error) {

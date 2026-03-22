@@ -180,6 +180,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ locations, dna, onRefreshD
             <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-1">Countries Visited</h3>
             <div className="flex items-baseline gap-2">
               <span className="text-4xl font-black text-white tracking-tighter">{countriesCount}</span>
+              <span className="text-sm font-bold text-[#567]">/ {totalCountriesEstimate}</span>
             </div>
           </div>
           <div className="text-right">
