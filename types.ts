@@ -86,6 +86,8 @@ export interface UserProfile {
   bucketList: string[];
   customTravelStyles?: string[];
   dna?: TravelDNA;
+  wanderlogCredits?: number;
+  vault?: string[];
 }
 
 export interface AIRecommendation {

@@ -2,27 +2,39 @@ import React, { useState } from 'react';
 import { Button } from './Button';
 import { TravelLocation } from '../types';
 
+import { useToast } from './Toast';
+
 interface RwaHotelInvestProps {
     location?: TravelLocation;
+    userCredits?: number;
+    onPurchaseComplete: (cost: number, assetName: string) => void;
     onClose: () => void;
 }
 
-export const RwaHotelInvest: React.FC<RwaHotelInvestProps> = ({ location, onClose }) => {
+export const RwaHotelInvest: React.FC<RwaHotelInvestProps> = ({ location, userCredits = 0, onPurchaseComplete, onClose }) => {
     // Determine target asset data
     const propertyName = location?.name || "Villa Treville";
     const propertyDest = location?.parentRegion || location?.tags?.join(', ') || "Amalfi Coast, Italy";
     const [tokens, setTokens] = useState(1);
     const tokenPrice = 500; // $500 per fractional stake
     const apy = 11.2; // 11.2% APY in credits
+    const totalCost = tokens * tokenPrice;
 
     const [isPurchasing, setIsPurchasing] = useState(false);
     const [purchaseComplete, setPurchaseComplete] = useState(false);
+    const { showToast } = useToast();
 
     const handlePurchase = () => {
+        if (userCredits < totalCost) {
+            showToast(`Insufficient Wanderlog Credits. (Balance: $${userCredits}, Cost: $${totalCost})`, 'error');
+            return;
+        }
+
         setIsPurchasing(true);
         setTimeout(() => {
             setIsPurchasing(false);
             setPurchaseComplete(true);
+            onPurchaseComplete(totalCost, propertyName);
         }, 3500); // Simulate transaction validation
     };
 
@@ -181,9 +193,13 @@ export const RwaHotelInvest: React.FC<RwaHotelInvestProps> = ({ location, onClos
                                         <span className="text-[#567] text-[10px] font-black tracking-widest uppercase">Per Token (USD)</span>
                                         <span className="text-white font-mono text-sm">${tokenPrice.toLocaleString()}</span>
                                     </div>
-                                    <div className="flex justify-between items-center">
+                                    <div className="flex justify-between items-center bg-[#14181c] p-2 mt-2 -mx-2 rounded-lg">
+                                        <span className="text-[#567] text-[10px] font-black tracking-widest uppercase">Wallet</span>
+                                        <span className={`font-mono text-[10px] ${userCredits >= totalCost ? 'text-white' : 'text-red-500'}`}>${userCredits.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-2">
                                         <span className="text-[#9ab] text-xs font-black uppercase tracking-widest">Gross Capital</span>
-                                        <span className="text-[#00e054] font-mono text-3xl font-black drop-shadow-[0_0_10px_rgba(0,224,84,0.3)]">${(tokens * tokenPrice).toLocaleString()}</span>
+                                        <span className="text-[#00e054] font-mono text-3xl font-black drop-shadow-[0_0_10px_rgba(0,224,84,0.3)]">${totalCost.toLocaleString()}</span>
                                     </div>
                                 </div>
                             </div>

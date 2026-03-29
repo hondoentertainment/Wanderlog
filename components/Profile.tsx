@@ -9,6 +9,8 @@ import { useToast } from './Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { deleteUserData } from '../services/storageService';
 import { TravelResume } from './TravelResume';
+import { GlobeView } from './GlobeView';
+import { TravelStats } from './TravelStats';
 
 interface ProfileProps {
   profile: UserProfile;
@@ -157,8 +159,8 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, 
   if (!isEditing) {
     return (
       <div id="profile-content" className="bg-[#1b2228] border border-[#2c3440] rounded-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="h-40 bg-gradient-to-b from-[#40bcf4]/20 to-[#1b2228] relative">
-          <div className="absolute inset-0 bg-black/40"></div>
+        <div className="h-80 bg-[#14181c] relative overflow-hidden">
+          <GlobeView locations={locations} />
         </div>
         <div className="px-8 pb-10 relative">
           <div className="flex justify-between items-end -mt-16 mb-8 relative z-10">
@@ -185,10 +187,14 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="md:col-span-2 space-y-6">
               <div>
-                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic">{profile.name} <span className="text-[#00e054] font-normal not-italic opacity-30">x</span> Travel Muse</h1>
+                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter uppercase italic drop-shadow-lg">{profile.name} <span className="text-[#00e054] font-normal not-italic opacity-30">x</span> Travel Muse</h1>
               </div>
 
-              <div className="pt-6">
+              <div className="pt-6 mt-6">
+                <TravelStats locations={locations} profile={profile} />
+              </div>
+
+              <div className="pt-6 border-t border-[#2c3440]">
                 <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-4">Travel Styles</h3>
                 <div className="flex flex-wrap gap-2">
                   {profile.travelStyle.length > 0 ? profile.travelStyle.map(style => (

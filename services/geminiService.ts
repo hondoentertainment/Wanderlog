@@ -591,3 +591,91 @@ Respond as Jules:`;
     return "Oops! I seem to be having a connection issue. Please try again in a moment. ✈️";
   }
 };
+
+export const extractLocationFromText = async (transcript: string): Promise<Partial<TravelLocation>> => {
+  const prompt = `Extract a structured travel log from this raw audio transcript: "${transcript}"
+  
+  Determine the name of the place, its type (country, state, city, or landmark), an estimated rating out of 5 based on the user's tone, what they liked, and what they disliked.`;
+
+  try {
+    const response = await getAI().models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
+            rating: { type: Type.NUMBER },
+            likes: { type: Type.ARRAY, items: { type: Type.STRING } },
+            dislikes: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["name", "type", "rating", "likes", "dislikes"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return {
+      name: parsed.name || 'Unknown Location',
+      type: (parsed.type || 'landmark') as LocationType,
+      rating: parsed.rating || 5,
+      likes: parsed.likes || [],
+      dislikes: parsed.dislikes || [],
+      dateVisited: new Date().toISOString(),
+      isVisited: true,
+      wishlistData: { discoveryRationale: "Transcribed from Walkman Mode ambient audio." }
+    };
+  } catch (error) {
+    console.error("Error extracting from text:", error);
+    throw error;
+  }
+};
+
+export const extractDataFromImage = async (base64Image: string): Promise<Partial<TravelLocation>> => {
+  const prompt = `Analyze this image (likely a receipt, boarding pass, or ticket). 
+  Extract the location it corresponds to (name and type: country, state, city, or landmark).
+  Infer what the user liked about it based on the item (e.g. if it's a restaurant receipt, mention the food).`;
+
+  try {
+    const base64Data = base64Image.split(',')[1];
+    const mimeType = base64Image.split(';')[0].split(':')[1];
+
+    const response = await getAI().models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: [
+        { inlineData: { data: base64Data, mimeType } },
+        { text: prompt }
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            name: { type: Type.STRING },
+            type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
+            likes: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["name", "type", "likes"]
+        }
+      }
+    });
+
+    const parsed = JSON.parse(response.text || '{}');
+    return {
+      name: parsed.name || 'Extracted Location',
+      type: (parsed.type || 'landmark') as LocationType,
+      rating: 5,
+      likes: parsed.likes || [],
+      dislikes: [],
+      dateVisited: new Date().toISOString(),
+      isVisited: true,
+      wishlistData: { discoveryRationale: "Extracted via Omni-Receipt Scanner." }
+    };
+  } catch (error) {
+    console.error("Error extracting from image:", error);
+    throw error;
+  }
+};

@@ -1,9 +1,40 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
 
 export const Login: React.FC = () => {
-    const { signInWithGoogle, loading } = useAuth();
+    const { signInWithGoogle, signInWithEmail, registerWithEmail, loading } = useAuth();
+    
+    const [isSignUp, setIsSignUp] = useState(false);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [localLoading, setLocalLoading] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setLocalLoading(true);
+        try {
+            if (isSignUp) {
+                await registerWithEmail(email, password);
+            } else {
+                await signInWithEmail(email, password);
+            }
+        } catch (error) {
+            // Error handling is managed by AuthContext toasts, but we catch it here to stop the spinner
+        } finally {
+            setLocalLoading(false);
+        }
+    };
+
+    const handleGoogleAuth = async () => {
+        setLocalLoading(true);
+        try {
+            await signInWithGoogle();
+        } catch (error) {
+        } finally {
+            setLocalLoading(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -32,25 +63,78 @@ export const Login: React.FC = () => {
                 </div>
 
                 <div className="space-y-6">
-                    <div className="bg-[#2c3440]/50 p-4 rounded-lg border border-[#2c3440]">
-                        <i className="fas fa-robot text-[#40bcf4] text-xl mb-3"></i>
-                        <p className="text-white text-sm font-bold mb-1">"Bonjour! I am Jules."</p>
-                        <p className="text-[#9ab] text-xs leading-relaxed">
-                            "Sign in to start tracking your adventures and unlocking personalized travel insights."
-                        </p>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div className="space-y-3 relative text-left">
+                            <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest pl-1">Email</label>
+                            <div className="relative">
+                                <i className="fas fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-[#567]"></i>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-[#14181c] pl-10 pr-4 py-3 rounded-xl border border-[#2c3440] text-sm text-white outline-none focus:border-[#00e054] focus:ring-1 focus:ring-[#00e054] transition-all placeholder:text-[#456]"
+                                    placeholder="Enter your email"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 relative text-left mb-6">
+                            <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest pl-1">Password</label>
+                            <div className="relative">
+                                <i className="fas fa-lock absolute left-4 top-1/2 -translate-y-1/2 text-[#567]"></i>
+                                <input
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-[#14181c] pl-10 pr-4 py-3 rounded-xl border border-[#2c3440] text-sm text-white outline-none focus:border-[#40bcf4] focus:ring-1 focus:ring-[#40bcf4] transition-all placeholder:text-[#456]"
+                                    placeholder="Enter your password"
+                                    required
+                                />
+                            </div>
+                        </div>
+
+                        <Button 
+                            type="submit" 
+                            variant="primary" 
+                            className="w-full py-4 text-sm tracking-widest shadow-[0_0_15px_rgba(0,224,84,0.2)]"
+                            isLoading={localLoading}
+                        >
+                            {isSignUp ? 'CREATE ACCOUNT' : 'LOGIN SECURELY'}
+                        </Button>
+                    </form>
+
+                    <div className="relative py-2">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-[#2c3440]"></div>
+                        </div>
+                        <div className="relative flex justify-center text-sm">
+                            <span className="px-4 bg-[#1b2228] text-[#567] font-black tracking-widest text-[9px] uppercase">Or</span>
+                        </div>
                     </div>
 
                     <button
-                        onClick={signInWithGoogle}
-                        className="w-full bg-white text-[#14181c] font-bold py-3.5 px-6 rounded-lg hover:bg-gray-100 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 shadow-lg"
+                        onClick={handleGoogleAuth}
+                        disabled={localLoading}
+                        className="w-full bg-white text-[#14181c] font-bold py-3.5 px-6 rounded-xl hover:bg-gray-100 transition-all transform hover:scale-[1.02] flex items-center justify-center gap-3 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                        Sign in with Google
+                        Continue with Google
                     </button>
+
+                    <div className="pt-4 mt-4 border-t border-[#2c3440]">
+                        <button 
+                            onClick={() => setIsSignUp(!isSignUp)}
+                            className="text-[#9ab] hover:text-white transition-colors text-xs font-bold"
+                            type="button"
+                        >
+                            {isSignUp ? 'Already have an account? Log in' : `Don't have an account? Sign up`}
+                        </button>
+                    </div>
                 </div>
 
-                <p className="mt-8 text-[#567] text-[10px] font-bold uppercase tracking-widest">
-                    Personal Travel Journal
+                <p className="mt-8 text-[#456] text-[9px] font-black uppercase tracking-widest">
+                    Vite • Firebase • PWA Ready
                 </p>
             </div>
         </div>

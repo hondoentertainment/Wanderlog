@@ -9,18 +9,20 @@ interface TimelineProps {
   onShare?: (loc: TravelLocation) => void;
   onSimulateSync?: () => void;
   onInvest?: (loc: TravelLocation) => void;
+  topBucketItem?: string;
 }
 
-export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare, onSimulateSync, onInvest }) => {
-  const sorted = [...locations].sort((a, b) => new Date(a.dateVisited).getTime() - new Date(b.dateVisited).getTime());
+export const Timeline: React.FC<TimelineProps> = ({ locations, onTravel, onShare, onSimulateSync, onInvest, topBucketItem }) => {
+  const safeLocations = locations || [];
+  const sorted = [...safeLocations].sort((a, b) => new Date(a.dateVisited).getTime() - new Date(b.dateVisited).getTime());
 
-  if (locations.length === 0) return null;
+  if (safeLocations.length === 0) return null;
 
   return (
     <div className="flex flex-col mb-12">
       {/* Flight Pricing Heatmap */}
       <div className="px-8 max-w-sm mb-2">
-        <FlightTracker />
+        <FlightTracker destination={topBucketItem} />
       </div>
 
       {/* Data Ingestion Demo (VC Pitch) */}

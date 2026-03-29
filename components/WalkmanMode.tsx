@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { extractLocationFromText } from '../services/geminiService';
+import { useToast } from './Toast';
 
 interface WalkmanModeProps {
     onExtracted: (result: any) => void;
@@ -8,28 +10,62 @@ export const WalkmanMode: React.FC<WalkmanModeProps> = ({ onExtracted }) => {
     const [isRecording, setIsRecording] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    const { showToast } = useToast();
+    const recognitionRef = useRef<any>(null);
+
+    useEffect(() => {
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            recognitionRef.current = new SpeechRecognition();
+            recognitionRef.current.continuous = true;
+            recognitionRef.current.interimResults = false;
+            recognitionRef.current.lang = 'en-US';
+        } else {
+            console.error("Speech Recognition API not supported in this browser.");
+        }
+    }, []);
+
     const toggleRecording = () => {
         if (isProcessing) return;
+        
         if (isRecording) {
             setIsRecording(false);
-            setIsProcessing(true);
-
-            // Simulate audio parsing
-            setTimeout(() => {
-                const mockResult = {
-                    name: "Ambient Audio Log",
-                    type: "landmark",
-                    rating: 5,
-                    likes: ["Extracted Geolocation", "Positive Vibe"],
-                    dislikes: [],
-                    dateVisited: new Date().toISOString(),
-                    wishlistData: { discoveryRationale: "Transcribed from Walkman Mode context." }
-                };
-                setIsProcessing(false);
-                onExtracted(mockResult);
-            }, 2500);
+            if (recognitionRef.current) recognitionRef.current.stop();
         } else {
+            if (!recognitionRef.current) {
+                showToast('Speech recognition is not supported in this browser.', 'error');
+                return;
+            }
+            
             setIsRecording(true);
+            
+            recognitionRef.current.onresult = async (event: any) => {
+                const current = event.resultIndex;
+                const transcript = event.results[current][0].transcript;
+                
+                setIsRecording(false);
+                setIsProcessing(true);
+                
+                try {
+                    const extracted = await extractLocationFromText(transcript);
+                    onExtracted(extracted);
+                    showToast('Location logged from audio!', 'success');
+                } catch (error) {
+                    console.error(error);
+                    showToast('Failed to parse audio transcript', 'error');
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+            
+            recognitionRef.current.onerror = (event: any) => {
+                setIsRecording(false);
+                if (event.error !== 'no-speech') {
+                    showToast(`Microphone error: ${event.error}`, 'error');
+                }
+            };
+
+            recognitionRef.current.start();
         }
     };
 

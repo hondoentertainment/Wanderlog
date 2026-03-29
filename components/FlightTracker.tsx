@@ -1,8 +1,19 @@
 import React from 'react';
 
-export const FlightTracker: React.FC = () => {
-    // Mock data for the "Buy Now" urgency heatmap graph
-    const pricePoints = [650, 620, 580, 500, 480, 410, 390, 420, 450, 510];
+interface FlightTrackerProps {
+    destination?: string;
+}
+
+export const FlightTracker: React.FC<FlightTrackerProps> = ({ destination }) => {
+    // Generate pseudo-random realistic price data stable for the given destination
+    const generatePrices = (dest: string) => {
+        const seed = dest.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const base = 300 + (seed % 500);
+        return Array.from({ length: 10 }).map((_, i) => Math.floor(base + Math.sin(seed + i) * 150));
+    };
+
+    const targetDest = destination ? `Seattle (SEA) → ${destination}` : "Seattle (SEA) → Tokyo (NRT)";
+    const pricePoints = destination ? generatePrices(destination) : [650, 620, 580, 500, 480, 410, 390, 420, 450, 510];
     const minPrice = Math.min(...pricePoints);
 
     return (
@@ -16,7 +27,7 @@ export const FlightTracker: React.FC = () => {
                         <i className="fas fa-chart-line text-[#00e054]"></i>
                         Price Tracker
                     </h4>
-                    <p className="text-xs text-[#9ab] mt-1">Seattle (SEA) → Tokyo (NRT)</p>
+                    <p className="text-xs text-[#9ab] mt-1 truncate max-w-[200px]" title={targetDest}>{targetDest}</p>
                 </div>
                 <div className="text-right">
                     <span className="text-[#00e054] font-bold text-lg">${minPrice}</span>

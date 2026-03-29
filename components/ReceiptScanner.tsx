@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from './Button';
+import { extractDataFromImage } from '../services/geminiService';
+import { useToast } from './Toast';
 
 interface ReceiptScannerProps {
     onScanned: (result: any) => void;
@@ -10,6 +12,8 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanned, onClo
     const [isScanning, setIsScanning] = useState(false);
     const [preview, setPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const { showToast } = useToast();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -26,23 +30,14 @@ export const ReceiptScanner: React.FC<ReceiptScannerProps> = ({ onScanned, onClo
         if (!preview) return;
         setIsScanning(true);
         try {
-            // Simulate Gemini OCR extraction delay
-            setTimeout(() => {
-                const mockResult = {
-                    name: "Receipt OCR Scan",
-                    type: "landmark",
-                    rating: 5,
-                    likes: ["Extracted from paper logic"],
-                    dislikes: [],
-                    dateVisited: new Date().toISOString(),
-                    wishlistData: { discoveryRationale: "Extracted via Ambient Vision." }
-                };
-                setIsScanning(false);
-                onScanned(mockResult);
-            }, 3000);
-        } catch (e) {
+            const extracted = await extractDataFromImage(preview);
+            setIsScanning(false);
+            showToast('Scan complete!', 'success');
+            onScanned(extracted);
+        } catch (e: any) {
             console.error(e);
             setIsScanning(false);
+            showToast('Failed to analyze image.', 'error');
         }
     };
 

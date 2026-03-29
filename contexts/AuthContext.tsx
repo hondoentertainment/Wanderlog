@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { User, signInWithPopup, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebaseConfig';
 import { useToast } from '../components/Toast';
 
@@ -7,6 +7,8 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithEmail: (e: string, p: string) => Promise<void>;
+    registerWithEmail: (e: string, p: string) => Promise<void>;
     logout: () => Promise<void>;
 }
 
@@ -52,8 +54,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const signInWithEmail = async (e: string, p: string) => {
+        try {
+            await signInWithEmailAndPassword(auth, e, p);
+            showToast('Welcome back!', 'success');
+        } catch (error: any) {
+            console.error('Error signing in with email:', error);
+            showToast(`Login failed: ${error.message || 'Unknown error'}`, 'error');
+            throw error; // Rethrow to let the UI component handle the loading state
+        }
+    };
+
+    const registerWithEmail = async (e: string, p: string) => {
+        try {
+            await createUserWithEmailAndPassword(auth, e, p);
+            showToast('Account created successfully!', 'success');
+        } catch (error: any) {
+            console.error('Error registering with email:', error);
+            showToast(`Registration failed: ${error.message || 'Unknown error'}`, 'error');
+            throw error;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+        <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithEmail, registerWithEmail, logout }}>
             {children}
         </AuthContext.Provider>
     );

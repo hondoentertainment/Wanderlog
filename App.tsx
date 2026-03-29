@@ -34,6 +34,8 @@ const AgencyPortal = lazy(() => import('./components/AgencyPortal').then(m => ({
 const ARViewfinder = lazy(() => import('./components/ARViewfinder').then(m => ({ default: m.ARViewfinder })));
 const AutoExecutor = lazy(() => import('./components/AutoExecutor').then(m => ({ default: m.AutoExecutor })));
 const RwaHotelInvest = lazy(() => import('./components/RwaHotelInvest').then(m => ({ default: m.RwaHotelInvest })));
+const SharedTripView = lazy(() => import('./components/SharedTripView').then(m => ({ default: m.SharedTripView })));
+const PwaPrompt = lazy(() => import('./components/PwaPrompt').then(m => ({ default: m.PwaPrompt })));
 
 import { Button } from './components/Button';
 import { StarRating } from './components/StarRating';
@@ -338,6 +340,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
+  const [publicTripViewId, setPublicTripViewId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/shared/')) {
+      const id = window.location.pathname.split('/shared/')[1];
+      if (id) setPublicTripViewId(id);
+    }
+  }, []);
+
   // --- High Performance Initialization (Cloud-Only) ---
   const [locations, setLocations] = useState<TravelLocation[]>([]);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -484,6 +495,24 @@ const App: React.FC = () => {
     return () => clearTimeout(timer);
   }, [locations, profile, savedRecommendations, squadTrips, user, loadingData]);
 
+  if (publicTripViewId) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading Travel Story...</div>}>
+        <SharedTripView 
+          tripId={publicTripViewId} 
+          onJoin={() => {
+            setPublicTripViewId(null);
+            window.history.pushState({}, '', '/');
+          }}
+          onHome={() => {
+            setPublicTripViewId(null);
+            window.history.pushState({}, '', '/');
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   if (authLoading) return <div className="min-h-screen bg-[#14181c] flex items-center justify-center text-[#00e054]">Loading...</div>;
 
   const handleAddLocation = (newLoc: Omit<TravelLocation, 'id'>) => {
@@ -495,10 +524,20 @@ const App: React.FC = () => {
   };
 
   const handleDeleteLocation = (id: string) => {
-    if (window.confirm("Delete this memory?")) {
-      setLocations(prev => prev.filter(l => l.id !== id));
-      if (selectedLocationId === id) setSelectedLocationId(null);
-    }
+    const locationToDelete = locations.find(l => l.id === id);
+    if (!locationToDelete) return;
+
+    // Optimistic delete
+    setLocations(prev => prev.filter(l => l.id !== id));
+    if (selectedLocationId === id) setSelectedLocationId(null);
+
+    // Show undo toast
+    showToast(`${locationToDelete.name} deleted`, 'info', {
+      label: 'UNDO',
+      onClick: () => {
+        setLocations(prev => [locationToDelete, ...prev]);
+      }
+    });
   };
 
   const handleUpdateProfile = (newProfile: UserProfile) => setProfile(newProfile);
@@ -1020,6 +1059,7 @@ const App: React.FC = () => {
                 <h3 className="text-xl font-black text-white tracking-tighter uppercase italic">Timeline</h3>
               </div>
               <Timeline
+                topBucketItem={profile?.bucketList?.[0]}
                 locations={locations}
                 onTravel={(loc) => {
                   setSelectedLocationId(loc.id);
@@ -1048,6 +1088,7 @@ const App: React.FC = () => {
                     if (!loc) return null;
                     return loc.isVisited ? (
                       <Timeline
+                        topBucketItem={profile?.bucketList?.[0]}
                         locations={[loc]}
                         onTravel={() => { }}
                         onInvest={(l) => setShowRwaInvest(l)}
@@ -1127,6 +1168,33 @@ const App: React.FC = () => {
           }}
         />
       )}
+
+      {showRwaInvest && profile && (
+        <Suspense fallback={null}>
+          <RwaHotelInvest
+            location={showRwaInvest}
+            userCredits={profile.wanderlogCredits ?? 50000}
+            onPurchaseComplete={(cost, assetName) => {
+              const currentVault = profile.vault || [];
+              const currentBal = profile.wanderlogCredits ?? 50000;
+              const updatedProfile = { 
+                ...profile, 
+                wanderlogCredits: currentBal - cost,
+                vault: [...currentVault, assetName] 
+              };
+              setProfile(updatedProfile);
+              if (user) {
+                saveToCloud(user.uid, { locations, profile: updatedProfile, squadTrips, savedRecommendations });
+              }
+            }}
+            onClose={() => setShowRwaInvest(null)}
+          />
+        </Suspense>
+      )}
+
+      <Suspense fallback={null}>
+        <PwaPrompt />
+      </Suspense>
     </Layout>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Peer } from 'peerjs';
 import { SquadTrip } from '../types';
 
 interface MeshNetworkP2PProps {
@@ -11,18 +12,38 @@ export const MeshNetworkP2P: React.FC<MeshNetworkP2PProps> = ({ squad, onClose }
     const [syncProgress, setSyncProgress] = useState(0);
 
     useEffect(() => {
-        // Simulate peer discovery around the center node
-        const nodes = squad.members.map((m, i) => ({
-            id: m.uid,
-            name: m.name.split(' ')[0], // First name only
+        // Initialize Decentralized WebRTC Node
+        const peerId = `wanderlog-node-${squad.id}-${Math.floor(Math.random() * 1000)}`;
+        const localPeer = new Peer(peerId);
+
+        localPeer.on('open', (id) => {
+            console.log('Mesh Node Active. Brokering ID:', id);
+        });
+
+        localPeer.on('connection', (conn) => {
+            conn.on('data', (data: any) => {
+                if (data?.type === 'SYNC') {
+                    setSyncProgress(100);
+                }
+            });
+        });
+
+        // Simulate peer discovery around the center node for visual representation
+        const nodes = (squad.members || []).map((m, i) => ({
+            id: m.uid || `temp-${i}`,
+            name: (m.name || 'Peer').split(' ')[0],
             style: m.style,
             distance: Math.random() * 80 + 30, // 30 to 110 radius
-            angle: (360 / squad.members.length) * i + (Math.random() * 30 - 15),
+            angle: (360 / Math.max(1, (squad.members || []).length)) * i + (Math.random() * 30 - 15),
             connected: false
         }));
 
         const discoveryTimer = setTimeout(() => {
             setScannedNodes(nodes);
+            
+            // In a real multi-client test, we would do:
+            // const conn = localPeer.connect(otherPeerId);
+            // conn.on('open', () => conn.send({type: 'SYNC', payload: squad}));
         }, 1500);
 
         // Simulate establishing connections sequentially
@@ -48,11 +69,12 @@ export const MeshNetworkP2P: React.FC<MeshNetworkP2PProps> = ({ squad, onClose }
         }, 400);
 
         return () => {
+            localPeer.destroy();
             clearTimeout(discoveryTimer);
             connectionTimers.forEach(clearTimeout);
             clearInterval(syncTimer);
         };
-    }, [squad.members]);
+    }, [squad]);
 
     return (
         <div className="fixed inset-0 z-[100] bg-[#0a0a0b]/95 backdrop-blur-xl flex flex-col items-center justify-center p-4 animate-in fade-in duration-500 overflow-hidden">
