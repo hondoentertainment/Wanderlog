@@ -38,6 +38,23 @@ export interface TravelLocation {
   photoUrls?: string[];
 }
 
+/** Public discovery feed document (subset of TravelLocation + owner metadata). */
+export interface PublicLocation {
+  id: string;
+  ownerId: string;
+  name: string;
+  type: LocationType;
+  rating: number;
+  likes: string[];
+  dateVisited: string;
+  isVisited: boolean;
+  dateEndVisited?: string;
+  companions?: CompanionType[];
+  coordinates?: { lat: number; lng: number; zoom?: number };
+  photoUrls?: string[];
+  publishedAt: string;
+}
+
 export interface TravelDNA {
   nature: number;
   culture: number;
@@ -77,6 +94,8 @@ export interface SquadTrip {
   joinCode: string;
   createdAt: string;
   payments?: SquadPayment;
+  /** Firebase Auth UIDs with access to squad chat */
+  memberIds?: string[];
 }
 
 export interface UserProfile {
@@ -88,6 +107,10 @@ export interface UserProfile {
   dna?: TravelDNA;
   wanderlogCredits?: number;
   vault?: string[];
+  /** Lowercase name prefix for friend search (set on save) */
+  searchName?: string;
+  /** Opt-in: publish photo logs to the discovery feed */
+  publishToDiscoveryFeed?: boolean;
 }
 
 export interface AIRecommendation {

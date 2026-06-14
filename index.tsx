@@ -1,10 +1,16 @@
 
+import './index.css';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './components/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { installGlobalErrorHandlers } from './utils/reportError';
+import { initPosthog } from './utils/posthog';
+
+void initPosthog();
+installGlobalErrorHandlers();
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

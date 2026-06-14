@@ -7,6 +7,7 @@ import { db } from '../services/firebaseConfig';
 import { SquadChallenges } from './SquadChallenges';
 import { SquadPayments } from './SquadPayments';
 import { MeshNetworkP2P } from './MeshNetworkP2P';
+import { encodeSquadJoinCode } from '../utils/squadJoinCode';
 
 interface SquadHubProps {
   trips: SquadTrip[];
@@ -45,14 +46,20 @@ export const SquadHub: React.FC<SquadHubProps> = ({
   const handleCreate = () => {
     if (!newTripName || !newTripDest) return;
 
+    const id = crypto.randomUUID();
     const trip: SquadTrip = {
-      id: crypto.randomUUID(),
+      id,
       name: newTripName,
       destination: newTripDest,
       members: tempMembers,
       items: [],
       createdAt: new Date().toISOString(),
-      joinCode: btoa(JSON.stringify({ name: newTripName, destination: newTripDest, members: tempMembers }))
+      joinCode: encodeSquadJoinCode({
+        id,
+        name: newTripName,
+        destination: newTripDest,
+        members: tempMembers,
+      }),
     };
 
     onCreate(trip);
@@ -96,7 +103,7 @@ export const SquadHub: React.FC<SquadHubProps> = ({
   const selectedTrip = trips.find(t => t.id === selectedTripId);
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div data-testid="squad-hub" className="space-y-8 animate-in fade-in duration-500">
       <div className="flex justify-between items-center border-b border-[#2c3440] pb-4">
         <div>
           <h2 className="text-sm font-black text-[#9ab] uppercase tracking-widest flex items-center gap-2">

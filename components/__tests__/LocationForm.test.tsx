@@ -7,12 +7,12 @@ import { AuthProvider } from '../../contexts/AuthContext';
 // Mock the contexts
 vi.mock('../../contexts/AuthContext', () => ({
     useAuth: () => ({ user: { uid: '123' } }),
-    AuthProvider: ({ children }: any) => `<div>${children}</div>`
+    AuthProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('../../components/Toast', () => ({
     useToast: () => ({ showToast: vi.fn() }),
-    ToastProvider: ({ children }: any) => `<div>${children}</div>`
+    ToastProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 describe('LocationForm', () => {

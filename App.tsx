@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo, Suspense, lazy, useRef } from 'react';
-import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from './types';
+import { TravelLocation, LocationType, UserProfile, SavedRecommendation, AIRecommendation, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip, CompanionType } from './types';
+import { filterLocationsByCompanion } from './utils/filterByCompanion';
+import { CompanionFilterChips } from './components/CompanionFilterChips';
+import { runPostLoginMigrations } from './services/cloudMigrations';
+import { E2E_MOCK_LOCATIONS } from './utils/e2eFixtures';
 import { loadAppData, saveToCloud } from './services/storageService';
+import { publishLocation, unpublishLocation, shouldPublishToDiscoveryFeed } from './services/publicLocationService';
+import { recordSocialActivity } from './services/activityFeedService';
+import { squadTripService, mergeSquadTrips } from './services/squadTripService';
 import { offlineQueue } from './services/offlineQueue';
 import { getCachedTravelDNA, setCachedTravelDNA } from './utils/dnaCache';
 import { getLocationDetails, geocodeLocation, generateItinerary, generateTravelDNA, performSemanticSearch, exportItineraryToICS, getTravelMuseInsights, getAIRecommendations, analyzeLogImage, analyzeVoiceCommand } from './services/geminiService';
@@ -36,8 +43,11 @@ const AutoExecutor = lazy(() => import('./components/AutoExecutor').then(m => ({
 const RwaHotelInvest = lazy(() => import('./components/RwaHotelInvest').then(m => ({ default: m.RwaHotelInvest })));
 const SharedTripView = lazy(() => import('./components/SharedTripView').then(m => ({ default: m.SharedTripView })));
 const PwaPrompt = lazy(() => import('./components/PwaPrompt').then(m => ({ default: m.PwaPrompt })));
+const FriendsHub = lazy(() => import('./components/FriendsHub').then(m => ({ default: m.FriendsHub })));
 
 import { Button } from './components/Button';
+import { AccountMenu } from './components/AccountMenu';
+import { parseSquadJoinCode } from './utils/squadJoinCode';
 import { StarRating } from './components/StarRating';
 import { ReceiptScanner } from './components/ReceiptScanner';
 import { WalkmanMode } from './components/WalkmanMode';
@@ -189,7 +199,7 @@ const Header: React.FC<{
   onOpenAutoExec?: () => void;
   onOpenWatch?: () => void;
 }> = ({ user, onViewChange, currentView, onOmniLog, onOmniSearch, onOmniAsk, onOmniImageUpload, onOmniVoiceTranscription, isOmniLoading, onSimulateAlert, onOpenScanner, onOpenAgency, onOpenAR, onOpenAutoExec, onOpenWatch }) => {
-  const { logout, signInWithGoogle } = useAuth();
+  const { signInWithGoogle } = useAuth();
 
   return (
     <header className="sticky top-0 z-50 px-6 py-8 flex flex-col items-center gap-8">
@@ -214,6 +224,7 @@ const Header: React.FC<{
           ].map(item => (
             <button
               key={item.id}
+              data-testid={`nav-${item.id}`}
               onClick={() => onViewChange(item.id as any)}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all ${currentView === item.id ? 'bg-[#00e054] text-[#14181c]' : 'text-[#567] hover:text-white'
                 }`}
@@ -224,17 +235,9 @@ const Header: React.FC<{
           ))}
         </nav>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           {user ? (
-            <div className="flex items-center gap-3 group">
-              <button
-                onClick={() => onViewChange('profile')}
-                className="w-10 h-10 rounded-full border-2 border-[#2c3440] group-hover:border-[#00e054] transition-all overflow-hidden"
-              >
-                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" />
-              </button>
-              <Button variant="ghost" onClick={logout} className="text-[#567] hover:text-white text-[10px] font-black uppercase tracking-widest">Logout</Button>
-            </div>
+            <AccountMenu onNavigate={(v) => onViewChange(v)} />
           ) : (
             <button
               onClick={signInWithGoogle}
@@ -354,7 +357,7 @@ const App: React.FC = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [savedRecommendations, setSavedRecommendations] = useState<SavedRecommendation[]>([]);
   const [squadTrips, setSquadTrips] = useState<SquadTrip[]>([]);
-  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard' | 'jules' | 'badges' | 'sharedlists' | 'collaborative' | 'creator' | 'agency'>('history');
+  const [currentView, setCurrentView] = useState<'history' | 'savedtrips' | 'profile' | 'add' | 'squad' | 'bucketlist' | 'compare' | 'statscard' | 'jules' | 'badges' | 'sharedlists' | 'collaborative' | 'creator' | 'agency' | 'friends' | 'discovery'>('history');
   const [selectedCollaborativeListId, setSelectedCollaborativeListId] = useState<string | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [shareModalTrip, setShareModalTrip] = useState<TravelLocation | null>(null);
@@ -368,6 +371,12 @@ const App: React.FC = () => {
   const [filterType, setFilterType] = useState<'all' | LocationType>('all');
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
   const [sortOrder, setSortOrder] = useState<'rating' | 'date'>('date');
+  const [companionFilter, setCompanionFilter] = useState<CompanionType | null>(null);
+
+  const displayLocations = useMemo(
+    () => filterLocationsByCompanion(locations, companionFilter),
+    [locations, companionFilter],
+  );
 
   const [activeMap, setActiveMap] = useState<{ name: string; coords: { lat: number; lng: number; zoom?: number } } | null>(null);
   const [isGeocoding, setIsGeocoding] = useState<string | null>(null);
@@ -385,6 +394,9 @@ const App: React.FC = () => {
 
   // Perceptual Speed Optimization
   const [loadingData, setLoadingData] = useState(true);
+
+  /** Must stay with top-level hooks (before conditional returns below). */
+  const [prefilledLocation, setPrefilledLocation] = useState<Partial<TravelLocation> | null>(null);
 
   // Auth State
   const { user, loading: authLoading } = useAuth();
@@ -405,10 +417,35 @@ const App: React.FC = () => {
     return () => window.removeEventListener('online', handleOnline);
   }, [showToast]);
 
+  const e2eGuestProfile = useMemo((): UserProfile | null => {
+    if (import.meta.env.VITE_E2E_FIXTURES !== 'true') return null;
+    return {
+      name: 'Traveler',
+      bio: 'Exploring the world one step at a time.',
+      travelStyle: ['Adventure'],
+      bucketList: [],
+      customTravelStyles: [],
+    };
+  }, []);
+
+  useEffect(() => {
+    if (e2eGuestProfile && !user) {
+      setLocations(E2E_MOCK_LOCATIONS);
+      setProfile(e2eGuestProfile);
+      setLoadingData(false);
+    }
+  }, [user, e2eGuestProfile]);
+
   useEffect(() => {
     let mounted = true;
     const fetchData = async () => {
       if (!user) {
+        if (e2eGuestProfile) {
+          setLocations(E2E_MOCK_LOCATIONS);
+          setProfile(e2eGuestProfile);
+          setLoadingData(false);
+          return;
+        }
         setLocations([]);
         setProfile({
           name: 'Traveler',
@@ -423,16 +460,26 @@ const App: React.FC = () => {
         return;
       }
       try {
-        const data = await loadAppData(user.uid);
+        const [data, cloudSquads] = await Promise.all([
+          loadAppData(user.uid),
+          squadTripService.fetchCloudSquadTrips(user.uid).catch(() => [] as SquadTrip[]),
+        ]);
         if (mounted) {
           const migratedLocations = (data.locations || []).map(l => ({
             ...l,
             isVisited: l.isVisited ?? true
           }));
           setLocations(migratedLocations);
-          setProfile(data.profile);
+          const profileWithSearch = {
+            ...data.profile,
+            searchName: data.profile.searchName ?? data.profile.name?.trim().toLowerCase(),
+            publishToDiscoveryFeed: data.profile.publishToDiscoveryFeed ?? true,
+          };
+          setProfile(profileWithSearch);
           setSavedRecommendations(data.savedRecommendations || []);
-          setSquadTrips(data.squadTrips || []);
+          const mergedSquads = mergeSquadTrips(data.squadTrips || [], cloudSquads);
+          setSquadTrips(mergedSquads);
+          runPostLoginMigrations(user.uid, profileWithSearch, mergedSquads).catch(() => undefined);
         }
       } catch (error) {
         console.error("Failed to load data", error);
@@ -446,7 +493,7 @@ const App: React.FC = () => {
 
   const unifiedSearchResults = useMemo(() => {
     const allItems = [
-      ...locations.map(l => ({ ...l, resultType: 'location' as const })),
+      ...displayLocations.map(l => ({ ...l, resultType: 'location' as const })),
       ...squadTrips.map(t => ({ ...t, resultType: 'trip' as const }))
     ];
 
@@ -485,7 +532,7 @@ const App: React.FC = () => {
         const bDate = b.resultType === 'location' ? b.dateVisited : b.createdAt;
         return new Date(bDate).getTime() - new Date(aDate).getTime();
       });
-  }, [locations, squadTrips, searchTerm, filterType, filterMinRating, sortOrder, semanticResultIds]);
+  }, [displayLocations, squadTrips, searchTerm, filterType, filterMinRating, sortOrder, semanticResultIds]);
 
   useEffect(() => {
     if (!profile || !user || loadingData) return;
@@ -520,7 +567,92 @@ const App: React.FC = () => {
     setLocations(prev => [location, ...prev]);
     setCurrentView('history');
     showToast(`${newLoc.name} added! 🎉`, 'success');
-    handleRefreshMuse(); // Proactively update insights
+    handleRefreshMuse();
+    if (user?.uid) {
+      publishLocation(user.uid, location, profile ?? undefined)
+        .then(() => {
+          if (shouldPublishToDiscoveryFeed(location, profile ?? undefined)) {
+            void recordSocialActivity({
+              actorId: user.uid,
+              actorName: profile?.name || user.displayName || 'Traveler',
+              type: 'trip_logged',
+              summary: `Logged ${location.name}${location.photoUrls?.length ? ' with photos' : ''}`,
+            }).catch(() => undefined);
+          }
+        })
+        .catch(() => {
+          showToast('Saved locally; discovery feed publish failed.', 'info');
+        });
+    }
+  };
+
+  const handleCreateSquad = (trip: SquadTrip) => {
+    const withMembers: SquadTrip = {
+      ...trip,
+      memberIds: user?.uid ? [...new Set([user.uid, ...(trip.memberIds ?? [])])] : trip.memberIds,
+    };
+    setSquadTrips((prev) => [...prev, withMembers]);
+    if (user?.uid) {
+      squadTripService.syncSquadTrip(user.uid, withMembers).catch(() => showToast('Squad saved locally; cloud sync failed.', 'info'));
+    }
+  };
+
+  const handleUpdateSquad = (trip: SquadTrip) => {
+    setSquadTrips((prev) => prev.map((t) => (t.id === trip.id ? trip : t)));
+    if (user?.uid) {
+      squadTripService.syncSquadTrip(user.uid, trip).catch(() => undefined);
+    }
+  };
+
+  const handleDeleteSquad = (id: string) => {
+    setSquadTrips((prev) => prev.filter((t) => t.id !== id));
+    if (user?.uid) {
+      squadTripService.deleteSquadTrip(id, user.uid).catch(() => undefined);
+    }
+  };
+
+  const handleJoinSquad = async (code: string) => {
+    const parsed = parseSquadJoinCode(code);
+    if (!parsed || !user?.uid) {
+      showToast('Invalid join code', 'error');
+      return;
+    }
+
+    try {
+      let tripId = parsed.squadId;
+      if (!tripId) {
+        tripId = (await squadTripService.resolveTripIdFromJoinCode(code)) || '';
+      }
+
+      if (tripId) {
+        const joined = await squadTripService.joinSquadTrip(tripId, user.uid);
+        if (joined) {
+          setSquadTrips((prev) => {
+            const exists = prev.some((t) => t.id === joined.id);
+            return exists ? prev.map((t) => (t.id === joined.id ? joined : t)) : [...prev, joined];
+          });
+          showToast(`Joined squad: ${joined.name}`, 'success');
+          setCurrentView('squad');
+          return;
+        }
+      }
+
+      const trip: SquadTrip = {
+        id: parsed.squadId || crypto.randomUUID(),
+        name: parsed.name,
+        destination: parsed.destination,
+        members: parsed.members ?? [],
+        items: [],
+        joinCode: code,
+        createdAt: new Date().toISOString(),
+        memberIds: [user.uid],
+      };
+      handleCreateSquad(trip);
+      showToast(`Joined squad: ${trip.name}`, 'success');
+      setCurrentView('squad');
+    } catch {
+      showToast('Could not join squad', 'error');
+    }
   };
 
   const handleDeleteLocation = (id: string) => {
@@ -530,6 +662,9 @@ const App: React.FC = () => {
     // Optimistic delete
     setLocations(prev => prev.filter(l => l.id !== id));
     if (selectedLocationId === id) setSelectedLocationId(null);
+    if (user?.uid) {
+      unpublishLocation(id, user.uid).catch(() => undefined);
+    }
 
     // Show undo toast
     showToast(`${locationToDelete.name} deleted`, 'info', {
@@ -540,7 +675,12 @@ const App: React.FC = () => {
     });
   };
 
-  const handleUpdateProfile = (newProfile: UserProfile) => setProfile(newProfile);
+  const handleUpdateProfile = (newProfile: UserProfile) => {
+    setProfile({
+      ...newProfile,
+      searchName: newProfile.name.trim().toLowerCase(),
+    });
+  };
 
   const handleAddToBucketList = (item: string) => {
     if (profile && !profile.bucketList.includes(item)) {
@@ -655,8 +795,6 @@ const App: React.FC = () => {
       }
     }
   };
-
-  const [prefilledLocation, setPrefilledLocation] = useState<Partial<TravelLocation> | null>(null);
 
   const handleOmniImageUpload = async (file: File) => {
     setIsSearchingAI(true);
@@ -803,20 +941,30 @@ const App: React.FC = () => {
               prefilledData={prefilledLocation}
             />
           )}
-          {currentView === 'profile' && <Profile profile={profile} locations={locations} onUpdate={handleUpdateProfile} onOpenCreatorHub={() => setCurrentView('creator')} />}
+          {currentView === 'profile' && (
+            <Profile
+              profile={profile}
+              locations={locations}
+              onUpdate={handleUpdateProfile}
+              onOpenCreatorHub={() => setCurrentView('creator')}
+              companionFilter={companionFilter}
+              onCompanionFilterChange={setCompanionFilter}
+            />
+          )}
           {currentView === 'creator' && <CreatorDashboard onBack={() => setCurrentView('profile')} />}
           {currentView === 'agency' && <AgencyPortal onBack={() => setCurrentView('history')} />}
           {currentView === 'discovery' && <DiscoveryFeed />}
+          {currentView === 'friends' && <FriendsHub />}
           {currentView === 'squad' && (
             <SquadHub
               trips={squadTrips}
               userId={user?.uid}
               userName={user?.displayName || 'Anonymous'}
               userAvatar={user?.photoURL}
-              onCreate={(t) => setSquadTrips([...squadTrips, t])}
-              onJoin={() => { }}
-              onUpdate={() => { }}
-              onDelete={() => { }}
+              onCreate={handleCreateSquad}
+              onJoin={handleJoinSquad}
+              onUpdate={handleUpdateSquad}
+              onDelete={handleDeleteSquad}
             />
           )}
           {currentView === 'bucketlist' && <BucketList items={profile.bucketList} onAdd={handleAddToBucketList} onRemove={(i) => setProfile({ ...profile, bucketList: profile.bucketList.filter(x => x !== i) })} />}
@@ -842,12 +990,23 @@ const App: React.FC = () => {
 
           {currentView === 'history' && (
             <div className="space-y-12">
-              <Dashboard locations={locations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} />
+              <Dashboard locations={displayLocations} dna={profile.dna} onRefreshDNA={handleRefreshDNA} />
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                   <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Your World</h2>
-                  <p className="text-[#567] text-sm font-bold uppercase tracking-widest mt-1">{locations.length} Memories Logged</p>
+                  <p
+                    data-testid="memories-count"
+                    className="text-[#567] text-sm font-bold uppercase tracking-widest mt-1"
+                  >
+                    {displayLocations.length} Memories{companionFilter ? ` (${companionFilter})` : ''}
+                    {companionFilter && locations.length !== displayLocations.length ? ` · ${locations.length} total` : ''}
+                  </p>
+                  <CompanionFilterChips
+                    selected={companionFilter}
+                    onChange={setCompanionFilter}
+                    className="mt-4"
+                  />
                 </div>
 
                 <div className="flex items-center gap-4 bg-[#1b2228]/40 p-2 rounded-full border border-[#2c3440]">
@@ -1060,7 +1219,7 @@ const App: React.FC = () => {
               </div>
               <Timeline
                 topBucketItem={profile?.bucketList?.[0]}
-                locations={locations}
+                locations={displayLocations}
                 onTravel={(loc) => {
                   setSelectedLocationId(loc.id);
                   setCurrentView('savedtrips');
@@ -1084,7 +1243,7 @@ const App: React.FC = () => {
               {selectedLocationId ? (
                 <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
                   {(() => {
-                    const loc = locations.find(l => l.id === selectedLocationId);
+                    const loc = displayLocations.find(l => l.id === selectedLocationId) ?? locations.find(l => l.id === selectedLocationId);
                     if (!loc) return null;
                     return loc.isVisited ? (
                       <Timeline
@@ -1096,7 +1255,7 @@ const App: React.FC = () => {
                     ) : (
                       <DiscoveryIntelligence
                         location={loc}
-                        visitedLocations={locations.filter(l => l.isVisited)}
+                        visitedLocations={displayLocations.filter(l => l.isVisited)}
                         profile={profile!}
                         onLogVisit={(l) => handleAddLocation({ ...l, isVisited: true })}
                         onSaveToWishlist={(name) => showToast(`${name} is safe in your wishlist!`, 'success')}
@@ -1131,7 +1290,7 @@ const App: React.FC = () => {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                  {locations.slice(0, 6).map(loc => (
+                  {displayLocations.slice(0, 6).map(loc => (
                     <div key={loc.id} onClick={() => setSelectedLocationId(loc.id)} className="cursor-pointer bg-[#1b2228]/40 border border-[#2c3440] p-6 rounded-2xl hover:bg-[#1b2228]/60 transition-all text-center group">
                       <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🗺️</div>
                       <h4 className="text-white font-black uppercase tracking-widest text-sm mb-1">{loc.name}</h4>

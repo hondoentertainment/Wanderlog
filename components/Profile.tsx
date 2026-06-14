@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense, lazy } from 'react';
 import { UserProfile } from '../types';
 import { Button } from './Button';
 import { StarRating } from './StarRating';
@@ -7,16 +7,21 @@ import { exportService } from '../services/exportService';
 import { TravelLocation } from '../types';
 import { useToast } from './Toast';
 import { useAuth } from '../contexts/AuthContext';
-import { deleteUserData } from '../services/storageService';
 import { TravelResume } from './TravelResume';
-import { GlobeView } from './GlobeView';
 import { TravelStats } from './TravelStats';
+import { CompanionsManager } from './CompanionsManager';
+import { PrivacySettings } from './PrivacySettings';
+import { CompanionType } from '../types';
+
+const GlobeView = lazy(() => import('./GlobeView').then((m) => ({ default: m.GlobeView })));
 
 interface ProfileProps {
   profile: UserProfile;
   locations: TravelLocation[];
   onUpdate: (profile: UserProfile) => void;
   onOpenCreatorHub?: () => void;
+  companionFilter?: CompanionType | null;
+  onCompanionFilterChange?: (companion: CompanionType | null) => void;
 }
 
 const PREDEFINED_TRAVEL_STYLES = [
@@ -29,8 +34,16 @@ const PREDEFINED_TRAVEL_STYLES = [
   'Van Life', 'Medical Tourism', 'Educational', 'Ancestry', 'Extreme Sports', 'Slow Travel'
 ].sort();
 
-export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, onOpenCreatorHub }) => {
-  const { user, logout } = useAuth();
+export const Profile: React.FC<ProfileProps> = ({
+  profile,
+  locations,
+  onUpdate,
+  onOpenCreatorHub,
+  companionFilter,
+  onCompanionFilterChange,
+}) => {
+  const [showGlobe, setShowGlobe] = useState(false);
+  const { user, logout, deleteAccount } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [name, setName] = useState(profile.name);
@@ -78,19 +91,15 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, 
   };
 
   const handleDeleteAccount = async () => {
-    const confirmed = confirm("WARNING: This will permanently delete your travel history and profile data. This action cannot be undone. Are you sure?");
-    if (confirmed && user) {
-      setIsDeleting(true);
-      try {
-        await deleteUserData(user.uid);
-        // After data deletion, we logout. 
-        // Note: Actual Firebase account deletion usually requires re-authentication for security.
-        // For this MVP, we clear the storage and logout.
-        await logout();
-      } catch (e) {
-        alert("Failed to delete account data.");
-        setIsDeleting(false);
-      }
+    const confirmed = confirm("WARNING: This will permanently delete your cloud data, photos, shared trips where you are the owner, and your login. This cannot be undone. Continue?");
+    if (!confirmed || !user) return;
+    setIsDeleting(true);
+    try {
+      await deleteAccount();
+    } catch {
+      // Toast handled in AuthContext
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -159,8 +168,21 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, 
   if (!isEditing) {
     return (
       <div id="profile-content" className="bg-[#1b2228] border border-[#2c3440] rounded-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
-        <div className="h-80 bg-[#14181c] relative overflow-hidden">
-          <GlobeView locations={locations} />
+        <div className="h-80 bg-[#14181c] relative overflow-hidden flex items-center justify-center">
+          {showGlobe ? (
+            <Suspense fallback={<div className="h-full flex items-center justify-center text-[#567] text-[10px] font-black uppercase tracking-widest">Loading globe…</div>}>
+              <GlobeView locations={locations} />
+            </Suspense>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowGlobe(true)}
+              className="px-6 py-4 border border-dashed border-[#2c3440] rounded-xl text-[#567] hover:text-[#00e054] hover:border-[#00e054]/40 text-[10px] font-black uppercase tracking-widest transition-all"
+            >
+              <i className="fas fa-globe-americas mr-2" />
+              Load 3D travel globe
+            </button>
+          )}
         </div>
         <div className="px-8 pb-10 relative">
           <div className="flex justify-between items-end -mt-16 mb-8 relative z-10">
@@ -193,6 +215,14 @@ export const Profile: React.FC<ProfileProps> = ({ profile, locations, onUpdate, 
               <div className="pt-6 mt-6">
                 <TravelStats locations={locations} profile={profile} />
               </div>
+
+              <CompanionsManager
+                locations={locations}
+                selectedCompanion={companionFilter}
+                onFilterChange={onCompanionFilterChange}
+              />
+
+              <PrivacySettings profile={profile} onProfileChange={onUpdate} />
 
               <div className="pt-6 border-t border-[#2c3440]">
                 <h3 className="text-[10px] font-black text-[#567] uppercase tracking-widest mb-4">Travel Styles</h3>

@@ -3,7 +3,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from './Button';
 
 export const Login: React.FC = () => {
-    const { signInWithGoogle, signInWithEmail, registerWithEmail, loading } = useAuth();
+    const { signInWithGoogle, signInWithApple, signInWithEmail, registerWithEmail, loading } = useAuth();
+    const appleSignInEnabled = import.meta.env.VITE_ENABLE_APPLE_SIGNIN === 'true';
     
     const [isSignUp, setIsSignUp] = useState(false);
     const [email, setEmail] = useState('');
@@ -121,6 +122,22 @@ export const Login: React.FC = () => {
                         <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                         Continue with Google
                     </button>
+
+                    {appleSignInEnabled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLocalLoading(true);
+                          signInWithApple().finally(() => setLocalLoading(false));
+                        }}
+                        disabled={localLoading}
+                        data-testid="sign-in-apple"
+                        className="w-full bg-[#14181c] text-white font-bold py-3.5 px-6 rounded-xl border border-[#2c3440] hover:border-white transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                      >
+                        <i className="fab fa-apple text-xl" />
+                        Continue with Apple
+                      </button>
+                    )}
 
                     <div className="pt-4 mt-4 border-t border-[#2c3440]">
                         <button 

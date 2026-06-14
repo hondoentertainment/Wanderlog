@@ -1,0 +1,83 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "friendRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "toUserId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "friendRequests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fromUserId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "sharedLists",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "squadTrips",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "profile.searchName", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "userDirectory",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "searchName", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "squadTrips",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "memberIds", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "userDirectory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "searchKeywords", "arrayConfig": "CONTAINS" }
+      ]
+    },
+    {
+      "collectionGroup": "socialActivities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "actorId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "squadJoinCodes",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "public_locations",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "ownerId", "order": "ASCENDING" }]
+    },
+    {
+      "collectionGroup": "public_locations",
+      "queryScope": "COLLECTION",
+      "fields": [{ "fieldPath": "dateVisited", "order": "DESCENDING" }]
+    },
+    {
+      "collectionGroup": "chat",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [{ "fieldPath": "timestamp", "order": "ASCENDING" }]
+    }
+  ],
+  "fieldOverrides": []
+}

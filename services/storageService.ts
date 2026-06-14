@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, storage } from './firebaseConfig';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
 import { STORAGE_KEY } from '../constants';
 
@@ -13,13 +13,22 @@ export const DEFAULT_PROFILE: UserProfile = {
 };
 
 import { offlineQueue } from './offlineQueue';
+import { syncUserDirectory } from './userDirectory';
 
 // --- Storage Logic ---
 
 export const saveToCloud = async (userId: string, data: StorageData, bypassQueue = false): Promise<void> => {
   try {
     const userRef = doc(db, 'users', userId);
-    await setDoc(userRef, data, { merge: true });
+    const payload: StorageData = {
+      ...data,
+      profile: {
+        ...data.profile,
+        searchName: data.profile.name?.trim().toLowerCase() ?? data.profile.searchName,
+      },
+    };
+    await setDoc(userRef, payload, { merge: true });
+    await syncUserDirectory(userId, payload.profile);
   } catch (error) {
     console.error("Error saving to cloud:", error);
     if (!bypassQueue) {
@@ -81,11 +90,34 @@ export const uploadPhoto = async (userId: string, file: File): Promise<string> =
   return getDownloadURL(snapshot.ref);
 };
 
+function refFromDownloadUrl(downloadUrl: string) {
+  const marker = '/o/';
+  const i = downloadUrl.indexOf(marker);
+  if (i === -1) throw new Error('Invalid storage download URL');
+  const after = downloadUrl.slice(i + marker.length);
+  const pathPart = after.split('?')[0];
+  const objectPath = decodeURIComponent(pathPart);
+  return ref(storage, objectPath);
+}
+
 export const deletePhoto = async (photoUrl: string): Promise<void> => {
   try {
-    const storageRef = ref(storage, photoUrl);
-    await deleteObject(storageRef);
+    await deleteObject(refFromDownloadUrl(photoUrl));
   } catch (error) {
     console.error("Error deleting photo:", error);
+  }
+};
+
+async function deleteStoragePrefix(dirRef: ReturnType<typeof ref>): Promise<void> {
+  const list = await listAll(dirRef);
+  await Promise.all(list.items.map((item) => deleteObject(item).catch(() => undefined)));
+  await Promise.all(list.prefixes.map((p) => deleteStoragePrefix(p)));
+}
+
+export const deleteAllUserStorage = async (userId: string): Promise<void> => {
+  try {
+    await deleteStoragePrefix(ref(storage, `users/${userId}`));
+  } catch {
+    /* bucket path may not exist */
   }
 };

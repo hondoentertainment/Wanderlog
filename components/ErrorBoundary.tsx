@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { Component, ReactNode, ErrorInfo } from 'react';
+import { reportError } from '../utils/reportError';
 
 interface Props {
     children: ReactNode;
@@ -22,7 +23,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
     }
 
     componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-        console.error('ErrorBoundary caught an error:', error, errorInfo);
+        reportError(error, { source: 'ErrorBoundary', componentStack: String(errorInfo.componentStack) });
     }
 
     handleRetry = (): void => {

@@ -4,7 +4,10 @@ import {
     onSnapshot, writeBatch, serverTimestamp
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
-import { FriendConnection, FriendRequest, PublicProfile, StatComparison, LocationType } from '../types';
+import { FriendConnection, FriendRequest, PublicProfile, StatComparison, LocationType, TravelLocation } from '../types';
+import { getVisitedLocations } from './userLocations';
+import { recordSocialActivity } from './activityFeedService';
+import { sendPushNotification } from './pushNotifyClient';
 
 const FRIEND_REQUESTS_COLLECTION = 'friendRequests';
 
@@ -45,6 +48,14 @@ export const friendService = {
             status: 'pending',
             createdAt: new Date().toISOString(),
         });
+
+        void sendPushNotification({
+            targetUserId: toUserId,
+            type: 'friend_request',
+            title: 'Travel Muse',
+            body: `${fromUserName} sent you a friend request`,
+            data: { fromUserId, fromUserName },
+        });
     },
 
     // Accept friend request
@@ -78,6 +89,28 @@ export const friendService = {
         batch.delete(doc(db, FRIEND_REQUESTS_COLLECTION, requestId));
 
         await batch.commit();
+
+        const accepterSnap = await getDoc(doc(db, 'users', userId));
+        const accepterName = accepterSnap.data()?.profile?.name || 'Traveler';
+        const requesterName = request.fromUserName || 'Traveler';
+
+        void recordSocialActivity({
+            actorId: request.fromUserId,
+            actorName: requesterName,
+            type: 'friend_accepted',
+            summary: `Connected with ${accepterName}`,
+            relatedUserId: request.toUserId,
+            relatedUserName: accepterName,
+        }).catch(() => undefined);
+
+        void recordSocialActivity({
+            actorId: request.toUserId,
+            actorName: accepterName,
+            type: 'friend_accepted',
+            summary: `Connected with ${requesterName}`,
+            relatedUserId: request.fromUserId,
+            relatedUserName: requesterName,
+        }).catch(() => undefined);
     },
 
     // Reject friend request
@@ -192,11 +225,7 @@ export const friendService = {
         }
 
         const userData = userSnap.data();
-        const locationsSnapshot = await getDocs(
-            query(collection(db, 'users', friendId, 'locations'), where('isVisited', '==', true))
-        );
-
-        const locations = locationsSnapshot.docs.map(d => d.data());
+        const locations = getVisitedLocations(userData);
         const countries = new Set(locations.filter(l => l.type === LocationType.COUNTRY).map(l => l.name));
         const states = new Set(locations.filter(l => l.type === LocationType.STATE).map(l => l.name));
 
@@ -232,13 +261,13 @@ export const friendService = {
 
     // Compare travel stats with friend
     async compareStats(userId: string, friendId: string): Promise<StatComparison> {
-        const [userLocationsSnap, friendLocationsSnap] = await Promise.all([
-            getDocs(collection(db, 'users', userId, 'locations')),
-            getDocs(collection(db, 'users', friendId, 'locations')),
+        const [userSnap, friendSnap] = await Promise.all([
+            getDoc(doc(db, 'users', userId)),
+            getDoc(doc(db, 'users', friendId)),
         ]);
 
-        const userLocations = userLocationsSnap.docs.map(d => d.data());
-        const friendLocations = friendLocationsSnap.docs.map(d => d.data());
+        const userLocations = getVisitedLocations(userSnap.data()) as TravelLocation[];
+        const friendLocations = getVisitedLocations(friendSnap.data()) as TravelLocation[];
 
         const userNames = new Set(userLocations.map(l => l.name.toLowerCase()));
         const friendNames = new Set(friendLocations.map(l => l.name.toLowerCase()));
@@ -284,30 +313,73 @@ export const friendService = {
         };
     },
 
-    // Search for users by name (basic implementation)
+    async getDirectoryProfile(
+        userId: string,
+    ): Promise<{ id: string; name: string; avatar?: string } | null> {
+        const snap = await getDoc(doc(db, 'userDirectory', userId));
+        if (!snap.exists()) return null;
+        const data = snap.data();
+        return {
+            id: userId,
+            name: data.displayName || 'Traveler',
+            avatar: data.avatarUrl,
+        };
+    },
+
+    async getDirectoryProfiles(
+        userIds: string[],
+    ): Promise<Record<string, { name: string; avatar?: string }>> {
+        const unique = [...new Set(userIds)];
+        const entries = await Promise.all(
+            unique.map(async (id) => {
+                const profile = await this.getDirectoryProfile(id);
+                return [id, profile] as const;
+            }),
+        );
+        const map: Record<string, { name: string; avatar?: string }> = {};
+        for (const [id, profile] of entries) {
+            if (profile) map[id] = { name: profile.name, avatar: profile.avatar };
+        }
+        return map;
+    },
+
+    // Search for users by name (Firestore prefix + keyword match)
     async searchUsers(searchTerm: string, currentUserId: string): Promise<{ id: string; name: string; avatar?: string }[]> {
-        // Note: In production, you'd want to use Algolia or similar for user search
-        // This is a simplified version that searches through existing connections
-        const snapshot = await getDocs(collection(db, 'users'));
-        const users: { id: string; name: string; avatar?: string }[] = [];
+        const lowerTerm = searchTerm.trim().toLowerCase();
+        if (lowerTerm.length < 2) return [];
 
-        const lowerTerm = searchTerm.toLowerCase();
+        const words = lowerTerm.split(/\s+/).filter(Boolean);
+        const primary = words[0];
 
-        snapshot.docs.forEach(doc => {
-            const data = doc.data();
-            if (
-                doc.id !== currentUserId &&
-                data.profile?.name?.toLowerCase().includes(lowerTerm)
-            ) {
-                users.push({
-                    id: doc.id,
-                    name: data.profile.name,
-                    avatar: data.profile?.avatarUrl,
-                });
+        const [prefixSnap, keywordSnap] = await Promise.all([
+            getDocs(
+                query(
+                    collection(db, 'userDirectory'),
+                    where('searchName', '>=', lowerTerm),
+                    where('searchName', '<=', lowerTerm + '\uf8ff'),
+                ),
+            ),
+            getDocs(
+                query(
+                    collection(db, 'userDirectory'),
+                    where('searchKeywords', 'array-contains', primary),
+                ),
+            ),
+        ]);
+
+        const map = new Map<string, { id: string; name: string; avatar?: string }>();
+
+        for (const d of [...prefixSnap.docs, ...keywordSnap.docs]) {
+            if (d.id === currentUserId) continue;
+            const data = d.data();
+            const name = data.displayName || 'Traveler';
+            const haystack = `${name} ${(data.searchName as string) || ''}`.toLowerCase();
+            if (words.every((w) => haystack.includes(w))) {
+                map.set(d.id, { id: d.id, name, avatar: data.avatarUrl });
             }
-        });
+        }
 
-        return users.slice(0, 10);
+        return [...map.values()].slice(0, 10);
     },
 
     // Check if two users are friends

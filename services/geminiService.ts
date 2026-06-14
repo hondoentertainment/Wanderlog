@@ -1,20 +1,7 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
+import { geminiGenerate, geminiGenerateJson, geminiGenerateJsonWithImage } from "./geminiRunner";
 import { TravelLocation, AIRecommendation, UserProfile, GroundingLink, LocationType, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from "../types";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY || '';
-
-// Lazy initialization to prevent crashes if API key is missing
-let aiInstance: GoogleGenAI | null = null;
-const getAI = (): GoogleGenAI => {
-  if (!aiInstance) {
-    if (!API_KEY) {
-      console.warn('GEMINI_API_KEY is not set. AI features will not work.');
-    }
-    aiInstance = new GoogleGenAI({ apiKey: API_KEY });
-  }
-  return aiInstance;
-};
 
 // Simple In-Memory Cache for AI Responses
 const AI_CACHE = new Map<string, { result: any; timestamp: number }>();
@@ -62,32 +49,24 @@ export const getAIRecommendations = async (
   Use Google Maps and Search to find real, interesting places.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleMaps: {} }, { googleSearch: {} }],
-        toolConfig: coords ? {
-          retrievalConfig: { latLng: { latitude: coords.latitude, longitude: coords.longitude } }
-        } : undefined,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ['state', 'country'] },
-              suggestedRatingMatch: { type: Type.NUMBER },
-              reason: { type: Type.STRING }
-            },
-            required: ["name", "type", "suggestedRatingMatch", "reason"]
-          }
-        }
+    const recs = await geminiGenerateJson<any[]>(prompt, {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          name: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ['state', 'country'] },
+          suggestedRatingMatch: { type: Type.NUMBER },
+          reason: { type: Type.STRING },
+        },
+        required: ['name', 'type', 'suggestedRatingMatch', 'reason'],
       },
+    }, {
+      tools: [{ googleMaps: {} }, { googleSearch: {} }],
+      toolConfig: coords
+        ? { retrievalConfig: { latLng: { latitude: coords.latitude, longitude: coords.longitude } } }
+        : undefined,
     });
-
-    const recs = JSON.parse(response.text || '[]');
     const finalRecs = recs.map((r: any) => ({
       ...r,
       type: r.type === 'state' ? LocationType.STATE : LocationType.COUNTRY
@@ -111,18 +90,10 @@ export const getSquadActivitySuggestions = async (squad: SquadTrip): Promise<str
   Focus on activities that blend different styles (e.g. food + history). Respond in a simple JSON array of strings.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
+    return await geminiGenerateJson<string[]>(prompt, {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
     });
-    return JSON.parse(response.text || '[]');
   } catch (error) {
     console.error("Squad activity suggestion failed", error);
     return [];
@@ -156,32 +127,19 @@ export const getTravelMuseInsights = async (
   Current Location: ${coords ? `${coords.latitude}, ${coords.longitude}` : 'Unknown'}`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleMaps: {} }, { googleSearch: {} }],
-        toolConfig: coords ? {
-          retrievalConfig: { latLng: { latitude: coords.latitude, longitude: coords.longitude } }
-        } : undefined,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              type: { type: Type.STRING, enum: ['pattern', 'gem'] },
-              description: { type: Type.STRING },
-              relevanceScore: { type: Type.NUMBER }
-            },
-            required: ["title", "type", "description", "relevanceScore"]
-          }
-        }
+    const insights = await geminiGenerateJson<any[]>(prompt, {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          title: { type: Type.STRING },
+          type: { type: Type.STRING, enum: ['pattern', 'gem'] },
+          description: { type: Type.STRING },
+          relevanceScore: { type: Type.NUMBER },
+        },
+        required: ['title', 'type', 'description', 'relevanceScore'],
       },
     });
-
-    const insights = JSON.parse(response.text || '[]');
     const finalInsights = insights.map((ins: any) => ({
       ...ins,
       id: crypto.randomUUID()
@@ -199,28 +157,24 @@ export const getTravelMuseInsights = async (
  * AI-Assisted Logging: Extracts info from a photo (receipt, ticket, etc.)
  */
 export const analyzeLogImage = async (base64Image: string): Promise<Partial<TravelLocation>> => {
-  const prompt = "Extract the travel location name, date (YYYY-MM-DD), and 3 potential highlights/pros from this image. If it's a receipt or ticket, look for city/country names and business names. Respond in JSON.";
+  const prompt =
+    "Extract the travel location name, date (YYYY-MM-DD), and 3 potential highlights/pros from this image. If it's a receipt or ticket, look for city/country names and business names. Respond in JSON.";
+
+  const imageExtractSchema = {
+    type: Type.OBJECT,
+    properties: {
+      name: { type: Type.STRING },
+      dateVisited: { type: Type.STRING },
+      likes: { type: Type.ARRAY, items: { type: Type.STRING } },
+    },
+  };
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [
-        { text: prompt },
-        { inlineData: { mimeType: "image/jpeg", data: base64Image } }
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            dateVisited: { type: Type.STRING },
-            likes: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
-        }
-      }
-    });
-    return JSON.parse(response.text || '{}');
+    return await geminiGenerateJsonWithImage<Partial<TravelLocation>>(
+      prompt,
+      base64Image,
+      imageExtractSchema,
+    );
   } catch (error) {
     console.error("Image analysis failed", error);
     return {};
@@ -240,22 +194,14 @@ export const analyzeVoiceCommand = async (transcript: string): Promise<Partial<T
   - Return in JSON.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            dateVisited: { type: Type.STRING },
-            likes: { type: Type.ARRAY, items: { type: Type.STRING } }
-          }
-        }
-      }
+    return await geminiGenerateJson<Partial<TravelLocation>>(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        dateVisited: { type: Type.STRING },
+        likes: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
     });
-    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Voice analysis failed", error);
     return {};
@@ -293,18 +239,10 @@ export const performSemanticSearch = async (query: string, locations: TravelLoca
   Return only a JSON array of the IDs.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING }
-        }
-      }
+    return await geminiGenerateJson<string[]>(prompt, {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
     });
-    return JSON.parse(response.text || '[]');
   } catch (error) {
     console.error("Semantic search failed", error);
     return [];
@@ -332,12 +270,8 @@ export const getDiscoveryRationale = async (
   Provide a one-sentence, highly personal rationale that builds trust by referencing specific past experiences or styles. Do not be generic. Respond as Jules.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-    });
-    return response.text || "This matches your unique travel DNA perfectly.";
-  } catch (e) {
+    return (await geminiGenerate(prompt)) || "This matches your unique travel DNA perfectly.";
+  } catch {
     return "A perfect match for your exploration style.";
   }
 };
@@ -365,24 +299,16 @@ export const getDiscoveryContext = async (
   Respond in JSON.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            rationale: { type: Type.STRING },
-            bestTime: { type: Type.STRING },
-            similarTo: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["rationale", "bestTime", "similarTo"]
-        }
-      }
+    return await geminiGenerateJson<DiscoveryContext>(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        rationale: { type: Type.STRING },
+        bestTime: { type: Type.STRING },
+        similarTo: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['rationale', 'bestTime', 'similarTo'],
     });
-    return JSON.parse(response.text || '{"rationale": "Matches your style.", "bestTime": "Anytime", "similarTo": []}');
-  } catch (e) {
+  } catch {
     return { rationale: "Matches your style.", bestTime: "Anytime", similarTo: [] };
   }
 };
@@ -396,29 +322,21 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
   const prompt = `Score Travel DNA (0-100) for axes: Nature, Culture, Adventure, Relaxation, Food, Urban based on history:\n${historyText}\nRespond in JSON.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            nature: { type: Type.NUMBER },
-            culture: { type: Type.NUMBER },
-            adventure: { type: Type.NUMBER },
-            relaxation: { type: Type.NUMBER },
-            food: { type: Type.NUMBER },
-            urban: { type: Type.NUMBER }
-          },
-          required: ["nature", "culture", "adventure", "relaxation", "food", "urban"]
-        }
+    const result = await geminiGenerateJson<TravelDNA>(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        nature: { type: Type.NUMBER },
+        culture: { type: Type.NUMBER },
+        adventure: { type: Type.NUMBER },
+        relaxation: { type: Type.NUMBER },
+        food: { type: Type.NUMBER },
+        urban: { type: Type.NUMBER },
       },
+      required: ['nature', 'culture', 'adventure', 'relaxation', 'food', 'urban'],
     });
-    const result = JSON.parse(response.text || '{"nature": 50, "culture": 50, "adventure": 50, "relaxation": 50, "food": 50, "urban": 50}');
     cacheResponse(cacheKey, result);
     return result;
-  } catch (error) {
+  } catch {
     return { nature: 50, culture: 50, adventure: 50, relaxation: 50, food: 50, urban: 50 };
   }
 };
@@ -426,24 +344,15 @@ export const generateTravelDNA = async (visitedLocations: TravelLocation[], prof
 export const getLocationDetails = async (name: string, type: LocationType): Promise<{ description: string; attractions: string[] }> => {
   const prompt = `2-sentence description of ${name} and 4 key attractions. JSON format.`;
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            description: { type: Type.STRING },
-            attractions: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["description", "attractions"]
-        }
+    return await geminiGenerateJson<{ description: string; attractions: string[] }>(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        description: { type: Type.STRING },
+        attractions: { type: Type.ARRAY, items: { type: Type.STRING } },
       },
+      required: ['description', 'attractions'],
     });
-    return JSON.parse(response.text || '{"description": "", "attractions": []}');
-  } catch (error) {
+  } catch {
     return { description: "Great destination.", attractions: ["Local Culture"] };
   }
 };
@@ -451,27 +360,19 @@ export const getLocationDetails = async (name: string, type: LocationType): Prom
 export const generateItinerary = async (name: string, type: LocationType, description: string, attractions: string[]): Promise<ItineraryDay[]> => {
   const prompt = `Generate a 3-day travel itinerary for ${name} using attractions: ${attractions.join(', ')}. JSON format with day, title, and activities.`;
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              day: { type: Type.NUMBER },
-              title: { type: Type.STRING },
-              activities: { type: Type.ARRAY, items: { type: Type.STRING } }
-            },
-            required: ["day", "title", "activities"]
-          }
-        }
+    return await geminiGenerateJson<ItineraryDay[]>(prompt, {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          day: { type: Type.NUMBER },
+          title: { type: Type.STRING },
+          activities: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ['day', 'title', 'activities'],
       },
     });
-    return JSON.parse(response.text || '[]');
-  } catch (error) {
+  } catch {
     return [];
   }
 };
@@ -479,20 +380,12 @@ export const generateItinerary = async (name: string, type: LocationType, descri
 export const geocodeLocation = async (name: string, type: LocationType): Promise<{ lat: number; lng: number } | null> => {
   const prompt = `Lat/Lng for ${name} (${type}). JSON format.`;
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: { lat: { type: Type.NUMBER }, lng: { type: Type.NUMBER } },
-          required: ["lat", "lng"]
-        }
-      }
+    return await geminiGenerateJson<{ lat: number; lng: number } | null>(prompt, {
+      type: Type.OBJECT,
+      properties: { lat: { type: Type.NUMBER }, lng: { type: Type.NUMBER } },
+      required: ['lat', 'lng'],
     });
-    return JSON.parse(response.text || 'null');
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -598,26 +491,23 @@ export const extractLocationFromText = async (transcript: string): Promise<Parti
   Determine the name of the place, its type (country, state, city, or landmark), an estimated rating out of 5 based on the user's tone, what they liked, and what they disliked.`;
 
   try {
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
-            rating: { type: Type.NUMBER },
-            likes: { type: Type.ARRAY, items: { type: Type.STRING } },
-            dislikes: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["name", "type", "rating", "likes", "dislikes"]
-        }
-      }
+    const parsed = await geminiGenerateJson<{
+      name: string;
+      type: string;
+      rating: number;
+      likes: string[];
+      dislikes: string[];
+    }>(prompt, {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
+        rating: { type: Type.NUMBER },
+        likes: { type: Type.ARRAY, items: { type: Type.STRING } },
+        dislikes: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['name', 'type', 'rating', 'likes', 'dislikes'],
     });
-
-    const parsed = JSON.parse(response.text || '{}');
     return {
       name: parsed.name || 'Unknown Location',
       type: (parsed.type || 'landmark') as LocationType,
@@ -640,30 +530,24 @@ export const extractDataFromImage = async (base64Image: string): Promise<Partial
   Infer what the user liked about it based on the item (e.g. if it's a restaurant receipt, mention the food).`;
 
   try {
-    const base64Data = base64Image.split(',')[1];
-    const mimeType = base64Image.split(';')[0].split(':')[1];
+    const base64Data = base64Image.includes(',') ? base64Image.split(',')[1] : base64Image;
+    const mimeType = base64Image.includes(';')
+      ? base64Image.split(';')[0].split(':')[1]
+      : 'image/jpeg';
 
-    const response = await getAI().models.generateContent({
-      model: "gemini-1.5-flash",
-      contents: [
-        { inlineData: { data: base64Data, mimeType } },
-        { text: prompt }
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            name: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
-            likes: { type: Type.ARRAY, items: { type: Type.STRING } }
-          },
-          required: ["name", "type", "likes"]
-        }
-      }
-    });
-
-    const parsed = JSON.parse(response.text || '{}');
+    const parsed = await geminiGenerateJsonWithImage<{
+      name: string;
+      type: string;
+      likes: string[];
+    }>(prompt, base64Data, {
+      type: Type.OBJECT,
+      properties: {
+        name: { type: Type.STRING },
+        type: { type: Type.STRING, enum: ['country', 'state', 'city', 'landmark'] },
+        likes: { type: Type.ARRAY, items: { type: Type.STRING } },
+      },
+      required: ['name', 'type', 'likes'],
+    }, mimeType);
     return {
       name: parsed.name || 'Extracted Location',
       type: (parsed.type || 'landmark') as LocationType,

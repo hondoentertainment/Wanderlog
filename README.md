@@ -5,6 +5,8 @@
 **Author:** Senior Product Engineer  
 **Live URL:** https://wanderlog-travel-tracker.vercel.app
 
+**Canonical app:** The production Vite app lives at the **repository root** (`npm run dev`). The nested `Wanderlog/` folder is legacy — see `Wanderlog/LEGACY.md`.
+
 ## 1. Executive Summary
 Wanderlog v2.0 is a deep tech evolution, expanding from a high-end personal travel tracker into an **autonomous travel companion, enterprise B2B hub, and spatial platform**. It features squad collaboration, creator monetization via paywalled itineraries, a B2B travel agency CRM overlay, Augmented Reality (AR) spatial discovery viewing, autonomous flight-rebooking execution (Auto-Exec), and zero-latency P2P mesh syncing for off-grid collaborative traversal.
 
@@ -58,8 +60,8 @@ Wanderlog v2.0 is a deep tech evolution, expanding from a high-end personal trav
 
 ## 4. Technical Specifications
 *   **Frontend:** React 19 with TypeScript, Vite build system
-*   **AI SDK:** `@google/genai` (Gemini 3 Flash)
-*   **Authentication:** Firebase Authentication (Google provider)
+*   **AI SDK:** `@google/genai` (Gemini) via `/api/gemini` in production
+*   **Authentication:** Firebase Authentication (Google + email)
 *   **Database:** Firebase Cloud Firestore
 *   **Mapping:** Leaflet.js with CartoDB Dark Matter tiles and Leaflet.heat plugin
 *   **Charts:** Custom SVG implementation for radar chart visualization
@@ -73,7 +75,7 @@ Wanderlog v2.0 is a deep tech evolution, expanding from a high-end personal trav
 
 ## 6. Security & Permissions
 *   **Authentication:** Secure Google OAuth 2.0 via Firebase.
-*   **Firestore Rules:** User data isolated by UID (users/{userId}).
+*   **Firestore Rules:** User data isolated by UID; squads use `ownerId` + `memberIds`.
 *   **Geolocation:** Opt-in permission for localized travel tips.
 *   **Data Privacy:** User data stored securely in Firebase, accessible only to authenticated user.
 
@@ -81,41 +83,26 @@ Wanderlog v2.0 is a deep tech evolution, expanding from a high-end personal trav
 
 ## 7. Recommended Next Steps
 
-### High Priority
-1. **Firestore Security Rules** - Configure proper read/write rules in Firebase Console:
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /users/{userId} {
-         allow read, write: if request.auth != null && request.auth.uid == userId;
-       }
-     }
-   }
-   ```
+### Operational (you run locally)
+See **[docs/DEPLOY.md](docs/DEPLOY.md)** for the full checklist.
 
-2. **Environment Variables** - Move Firebase config to environment variables for security:
-   - Create `.env` file with `VITE_FIREBASE_API_KEY`, etc.
-   - Update `firebaseConfig.ts` to use `import.meta.env`
+1. **Verify** — `npm run verify` (unit + build + E2E)
+2. **Deploy Firebase** — copy `.firebaserc.example` → `.firebaserc`, then `npm run firebase:deploy:rules`
+3. **Vercel env** — `GEMINI_API_KEY` (server), `VITE_FIREBASE_*`, optional `GEMINI_REQUIRE_AUTH`, `VITE_POSTHOG_KEY`, `VITE_FIREBASE_VAPID_KEY`
+4. **GitHub** — push to `main`; optional manual Firebase deploy via Actions (`firebase-deploy.yml` + `FIREBASE_TOKEN` secret)
 
-3. **Error Boundary** - Add React Error Boundary component to catch and display errors gracefully.
+### Production-grade (implemented in code)
+- `vercel.json` — SPA rewrites (`/shared/:tripId`) + security headers
+- Firestore rules — squad self-join, social activity feed, discovery unpublish
+- Storage rules — authenticated photo reads
+- Account deletion — full cloud purge (squads, join codes, discovery)
+- Gemini proxy — optional auth, Upstash distributed rate limits, dev parity
+- FCM server delivery — `/api/push/notify` + client wiring for friend requests
+- Social activity feed — Friends hub shows friend trip logs and connections
+- Friend search — Firestore keyword index + optional Algolia
+- Tailwind bundled via Vite (no runtime CDN)
+- FCM service worker — build-time Firebase config injection
 
-### Medium Priority
-4. **Logout Functionality** - Add visible logout button in profile/header area.
-
-5. **Delete Account** - Allow users to delete their cloud data and account.
-
-6. **Photo Uploads** - Allow users to attach photos to travel logs (Firebase Storage).
-
-7. **Trip Companions Manager** - Enhanced UI for managing travel companions.
-
-### Future Enhancements
-8. **Social Features** - Share trips publicly, follow other travelers.
-
-9. **Travel Statistics Export** - Export travel stats as PDF or shareable image.
-
-10. **PWA Support** - Enable offline-first experience with service worker.
-
-11. **Push Notifications** - Remind users to log recent trips.
-
-12. **Multi-Provider Auth** - Add Apple Sign-In, email/password options.
+### Future enhancements
+- Algolia sync automation (index ETL / Firebase Extension)
+- Richer social feed (comments, reactions)

@@ -1,7 +1,10 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { viteGeminiDevApi } from './plugins/viteGeminiDevApi';
+import { viteFirebaseMessagingSw } from './plugins/viteFirebaseMessagingSw';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
@@ -11,7 +14,10 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
     },
     plugins: [
+      tailwindcss(),
       react(),
+      viteFirebaseMessagingSw(),
+      ...(mode === 'development' ? [viteGeminiDevApi()] : []),
       VitePWA({
         registerType: 'prompt',
         includeAssets: ['favicon.ico', 'logo.png'],
@@ -44,7 +50,16 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
           maximumFileSizeToCacheInBytes: 5000000, // 5MB to handle three.js
+          navigateFallbackDenylist: [/^\/api/, /firestore/],
           runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
               handler: 'CacheFirst',
@@ -91,10 +106,6 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
-    define: {
-      'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -105,7 +116,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: './test/setup.ts',
       include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
-      exclude: ['**/node_modules/**', '**/e2e/**'],
+      /** Playwright lives in e2e/ and legacy tests/; *.spec.ts there must not run under Vitest */
+      exclude: ['**/node_modules/**', '**/e2e/**', '**/tests/**'],
     }
   };
 });
