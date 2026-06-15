@@ -1,5 +1,5 @@
+
 import './index.css';
-import * as Sentry from '@sentry/react';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -7,6 +7,12 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { installGlobalErrorHandlers } from './utils/reportError';
+import { initPosthog } from './utils/posthog';
+
+void initPosthog();
+installGlobalErrorHandlers();
 
 const release =
   import.meta.env.VITE_APP_RELEASE && import.meta.env.VITE_APP_RELEASE.length > 0
@@ -31,13 +37,11 @@ const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <ErrorBoundary>
-      <BrowserRouter>
-        <ToastProvider>
-          <AuthProvider>
-            <App />
-          </AuthProvider>
-        </ToastProvider>
-      </BrowserRouter>
+      <ToastProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   </React.StrictMode>
 );

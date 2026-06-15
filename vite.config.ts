@@ -1,40 +1,123 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { VitePWA } from 'vite-plugin-pwa';
+import { viteGeminiDevApi } from './plugins/viteGeminiDevApi';
+import { viteFirebaseMessagingSw } from './plugins/viteFirebaseMessagingSw';
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '');
+  const env = loadEnv(mode, '.', '');
   return {
-    define: {
-      'import.meta.env.VITE_APP_RELEASE': JSON.stringify(
-        env.VERCEL_GIT_COMMIT_SHA || env.VITE_APP_RELEASE || ''
-      ),
-    },
     server: {
       port: 3000,
       host: '0.0.0.0',
-      proxy: {
-        '/api': {
-          target: 'http://127.0.0.1:3030',
-          changeOrigin: true,
-        },
-      },
     },
-    plugins: [react()],
+    plugins: [
+      tailwindcss(),
+      react(),
+      viteFirebaseMessagingSw(),
+      ...(mode === 'development' ? [viteGeminiDevApi()] : []),
+      VitePWA({
+        registerType: 'prompt',
+        includeAssets: ['favicon.ico', 'logo.png'],
+        manifest: {
+          name: 'Wanderlog',
+          short_name: 'Wanderlog',
+          description: 'Multi-Player Travel Discovery and Collaborative Planning',
+          theme_color: '#00e054',
+          background_color: '#14181c',
+          display: 'standalone',
+          icons: [
+            {
+              src: '/logo.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: '/logo.png',
+              sizes: '512x512',
+              type: 'image/png'
+            },
+            {
+              src: '/logo.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          maximumFileSizeToCacheInBytes: 5000000, // 5MB to handle three.js
+          navigateFallbackDenylist: [/^\/api/, /firestore/],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/firestore\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /^https:\/\/identitytoolkit\.googleapis\.com\/.*/i,
+              handler: 'NetworkOnly',
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'gstatic-fonts-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/unpkg\.com\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'unpkg-assets-cache',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            }
+          ]
+        }
+      })
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-      },
+      }
     },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'],
-            router: ['react-router-dom'],
-          },
-        },
-      },
-    },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: './test/setup.ts',
+      include: ['**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+      /** Playwright lives in e2e/ and legacy tests/; *.spec.ts there must not run under Vitest */
+      exclude: ['**/node_modules/**', '**/e2e/**', '**/tests/**'],
+    }
   };
 });

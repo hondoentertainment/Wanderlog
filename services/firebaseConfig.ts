@@ -1,32 +1,56 @@
-import { initializeApp, type FirebaseOptions } from 'firebase/app';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getApps, initializeApp, type FirebaseOptions } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
-const firebaseConfig: FirebaseOptions = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyAJ-mWoApzs6_VHFa179tPqDbEbTGHN8u4',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'wanderlog-55e55.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'wanderlog-55e55',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'wanderlog-55e55.firebasestorage.app',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '179811177732',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:179811177732:web:3b13d3b066700f933b6c51',
+/** Values from `.env`; must be defined for production builds used without dev server */
+const firebaseConfigFromEnv: FirebaseOptions = {
+    apiKey: import.meta.env.VITE_CUSTOM_FIREBASE_API_KEY || import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+function resolveFirebaseConfig(): FirebaseOptions {
+    const configured =
+        firebaseConfigFromEnv.apiKey &&
+        firebaseConfigFromEnv.projectId;
 
-const appCheckDebug = import.meta.env.VITE_APPCHECK_DEBUG_TOKEN;
-if (import.meta.env.DEV && appCheckDebug) {
-  (globalThis as unknown as { FIREBASE_APPCHECK_DEBUG_TOKEN: string }).FIREBASE_APPCHECK_DEBUG_TOKEN = appCheckDebug;
+    if (configured) {
+        return firebaseConfigFromEnv;
+    }
+
+    /** Production builds in CI (`npm run build`) need a valid-shaped config unless secrets are wired; set via workflow only for automated checks — not on real deploy pipelines. */
+    const allowOfflinePlaceholder =
+        import.meta.env.DEV ||
+        import.meta.env.MODE === 'test' ||
+        import.meta.env.VITE_CI_USE_FIREBASE_PLACEHOLDER === 'true';
+
+    if (allowOfflinePlaceholder) {
+        // Valid shape for the client SDK so the app renders; backing calls fail gracefully until `.env` is set.
+        console.warn('[firebase] VITE_FIREBASE_* not fully set — using placeholder for dev/test.');
+        return {
+            apiKey: 'local-dev-placeholder-not-a-secret',
+            authDomain: 'placeholder.firebaseapp.com',
+            projectId: 'wanderlog-local-placeholder',
+            storageBucket: 'wanderlog-local-placeholder.appspot.com',
+            messagingSenderId: '000000000000',
+            appId: '1:000000000000:web:e2ep000000000000000001',
+        };
+    }
+
+    throw new Error(
+        'Missing Firebase configuration. Copy .env.example to .env and set VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID (plus other VITE_FIREBASE_* values).'
+    );
 }
 
-const recaptchaSiteKey = import.meta.env.VITE_APPCHECK_RECAPTCHA_SITE_KEY;
-if (recaptchaSiteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(recaptchaSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
-}
-
+const app = getApps()[0] ?? initializeApp(resolveFirebaseConfig());
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
+export const appleProvider = new OAuthProvider('apple.com');
+appleProvider.addScope('email');
+appleProvider.addScope('name');
 export const db = getFirestore(app);
+export const storage = getStorage(app);

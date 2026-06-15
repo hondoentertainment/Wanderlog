@@ -1,47 +1,31 @@
-import { Ratelimit } from '@upstash/ratelimit';
-import { Redis } from '@upstash/redis';
+const buckets = new Map<string, { count: number; resetAt: number }>();
 
-const WINDOW_MS = 60_000;
-const MAX_PER_WINDOW = 60;
-
-const buckets = new Map<string, { count: number; reset: number }>();
-
-function checkMemoryRateLimit(uid: string): boolean {
+/** Simple in-memory rate limit for edge (per isolate). */
+export function checkRateLimit(
+  key: string,
+  maxRequests = 30,
+  windowMs = 60_000,
+): { allowed: boolean; retryAfterSec?: number } {
   const now = Date.now();
-  let b = buckets.get(uid);
-  if (!b || now > b.reset) {
-    buckets.set(uid, { count: 1, reset: now + WINDOW_MS });
-    return true;
+  const entry = buckets.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return { allowed: true };
   }
-  if (b.count >= MAX_PER_WINDOW) return false;
-  b.count += 1;
-  return true;
+
+  if (entry.count >= maxRequests) {
+    return { allowed: false, retryAfterSec: Math.ceil((entry.resetAt - now) / 1000) };
+  }
+
+  entry.count += 1;
+  return { allowed: true };
 }
 
-let upstashRatelimit: Ratelimit | null | undefined;
-
-function getUpstashRatelimit(): Ratelimit | null {
-  if (upstashRatelimit !== undefined) return upstashRatelimit;
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) {
-    upstashRatelimit = null;
-    return null;
-  }
-  const redis = new Redis({ url, token });
-  upstashRatelimit = new Ratelimit({
-    redis,
-    limiter: Ratelimit.slidingWindow(MAX_PER_WINDOW, '60 s'),
-    prefix: 'wanderlog:gemini',
-  });
-  return upstashRatelimit;
-}
-
-export async function checkGeminiRateLimit(uid: string): Promise<boolean> {
-  const rl = getUpstashRatelimit();
-  if (rl) {
-    const { success } = await rl.limit(uid);
-    return success;
-  }
-  return checkMemoryRateLimit(uid);
+export function clientRateLimitKey(request: Request): string {
+  return (
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    request.headers.get('x-real-ip') ||
+    'anonymous'
+  );
 }

@@ -4,15 +4,17 @@ import { LocationType, TravelLocation, CompanionType } from '../types';
 import { US_STATES, COMMON_COUNTRIES } from '../constants';
 import { Button } from './Button';
 import { StarRating } from './StarRating';
-import { analyzeLogImage, getGeminiErrorMessage } from '../services/geminiService';
+import { analyzeLogImage } from '../services/geminiService';
+import { uploadPhoto } from '../services/storageService';
+import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './Toast';
 
 interface LocationFormProps {
   onAdd: (location: Omit<TravelLocation, 'id'>) => void;
+  prefilledData?: Partial<TravelLocation> | null;
 }
 
-export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
-  const { showToast } = useToast();
+export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData }) => {
   const [name, setName] = useState('');
   const [type, setType] = useState<LocationType>(LocationType.COUNTRY);
   const [rating, setRating] = useState(4);
@@ -21,9 +23,55 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const [dislikeInput, setDislikeInput] = useState('');
   const [dislikes, setDislikes] = useState<string[]>([]);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [endDate, setEndDate] = useState('');
+  const [endDate, setEndDate] = useState<string>('');
   const [companions, setCompanions] = useState<CompanionType[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+
+  // Handle prefilled data from OmniBox analysis
+  useEffect(() => {
+    if (prefilledData) {
+      if (prefilledData.name) setName(prefilledData.name);
+      if (prefilledData.type) setType(prefilledData.type);
+      if (prefilledData.dateVisited) setDate(prefilledData.dateVisited);
+      if (prefilledData.likes) setLikes(prev => [...new Set([...prev, ...(prefilledData.likes || [])])]);
+    }
+  }, [prefilledData]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // Draft persistence
+  useEffect(() => {
+    if (prefilledData) return; // Don't load draft if we have AI prefill
+
+    const draftKey = 'location_form_draft';
+    const draftStr = localStorage.getItem(draftKey);
+    if (draftStr) {
+      try {
+        const draft = JSON.parse(draftStr);
+        if (draft.name) setName(draft.name);
+        if (draft.type) setType(draft.type);
+        if (draft.rating) setRating(draft.rating);
+        if (draft.likes) setLikes(draft.likes);
+        if (draft.dislikes) setDislikes(draft.dislikes);
+        if (draft.date) setDate(draft.date);
+        if (draft.endDate) setEndDate(draft.endDate);
+        if (draft.companions) setCompanions(draft.companions);
+      } catch (e) {
+        console.error('Failed to parse form draft', e);
+      }
+    }
+  }, [prefilledData]);
+
+  useEffect(() => {
+    // Only save draft if user has typed something
+    if (!name.trim() && likes.length === 0 && dislikes.length === 0 && companions.length === 0) return;
+
+    const draft = {
+      name, type, rating, likes, dislikes, date, endDate, companions
+    };
+    localStorage.setItem('location_form_draft', JSON.stringify(draft));
+  }, [name, type, rating, likes, dislikes, date, endDate, companions]);
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -31,6 +79,9 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
+  const { showToast } = useToast();
 
   useEffect(() => {
     const list = type === LocationType.STATE ? US_STATES : COMMON_COUNTRIES;
@@ -67,20 +118,44 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
       try {
         const base64 = (reader.result as string).split(',')[1];
         const extractedData = await analyzeLogImage(base64);
-        if (extractedData.name) setName(extractedData.name);
+        if (extractedData.name) {
+          setName(extractedData.name);
+          showToast(`Detected: ${extractedData.name}`, 'success');
+        }
         if (extractedData.dateVisited) setDate(extractedData.dateVisited);
-        if (extractedData.likes) setLikes((prev) => [...new Set([...prev, ...(extractedData.likes || [])])]);
-      } catch (err) {
-        showToast(getGeminiErrorMessage(err), 'error');
-      } finally {
-        setIsScanning(false);
+        if (extractedData.likes) setLikes(prev => [...new Set([...prev, ...(extractedData.likes || [])])]);
+      };
+      reader.readAsDataURL(file);
+
+      // Also add to photos if not already there
+      if (!photos.some(p => p.name === file.name)) {
+        setPhotos(prev => [...prev, file]);
+        setPhotoPreviews(prev => [...prev, URL.createObjectURL(file)]);
       }
-    };
-    reader.onerror = () => {
+    } catch (err) {
+      console.error(err);
+      showToast("Scan failed. Try again.", "error");
+    } finally {
       setIsScanning(false);
       showToast('Could not read that image.', 'error');
     };
     reader.readAsDataURL(file);
+  };
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length + photos.length > 5) {
+      showToast("Max 5 photos allowed", "info");
+      return;
+    }
+    setPhotos(prev => [...prev, ...selectedFiles]);
+    const newPreviews = (selectedFiles as File[]).map(file => URL.createObjectURL(file as Blob));
+    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleAddLike = (e: React.KeyboardEvent) => {
@@ -123,26 +198,53 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
   const removeLike = (index: number) => setLikes(likes.filter((_, i) => i !== index));
   const removeDislike = (index: number) => setDislikes(dislikes.filter((_, i) => i !== index));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onAdd({
-      name,
-      type,
-      rating,
-      likes,
-      dislikes,
-      dateVisited: date,
-      dateEndVisited: endDate || undefined,
-      companions: companions.length > 0 ? companions : undefined
-    });
-    setName('');
-    setLikes([]);
-    setDislikes([]);
-    setRating(4);
-    setEndDate('');
-    setCompanions([]);
-    setShowSuggestions(false);
+    if (!user) {
+      showToast("You must be logged in to save trips.", "error");
+      return;
+    }
+
+    setIsUploading(true);
+    let photoUrls: string[] = [];
+
+    try {
+      if (photos.length > 0) {
+        showToast(`Uploading ${photos.length} photos...`, 'info');
+        photoUrls = await Promise.all(photos.map(file => uploadPhoto(user.uid, file)));
+      }
+
+      onAdd({
+        name,
+        type,
+        rating,
+        likes,
+        dislikes,
+        dateVisited: date,
+        dateEndVisited: endDate || undefined,
+        companions: companions.length > 0 ? companions : undefined,
+        photoUrls: photoUrls.length > 0 ? photoUrls : undefined
+      });
+
+      // Clear draft on successful submit
+      localStorage.removeItem('location_form_draft');
+
+      setName('');
+      setLikes([]);
+      setDislikes([]);
+      setRating(4);
+      setEndDate('');
+      setCompanions([]);
+      setPhotos([]);
+      setPhotoPreviews([]);
+      setShowSuggestions(false);
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to save memory. Storage issue?", "error");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -160,8 +262,50 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
           onClick={() => fileInputRef.current?.click()}
           isLoading={isScanning}
         >
-          <i className="fas fa-camera mr-1"></i> SCAN PHOTO
+          <i className="fas fa-camera mr-1"></i> SCAN TO PRE-FILL
         </Button>
+      </div>
+
+      {/* Photo Gallery Upload */}
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] font-black text-[#9ab] uppercase tracking-widest block">Photo Gallery</label>
+          <span className="text-[8px] font-bold text-[#567] uppercase tracking-tighter">{photos.length}/5 Photos</span>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          {photoPreviews.map((preview, idx) => (
+            <div key={idx} className="aspect-square bg-[#14181c] rounded-lg border border-[#2c3440] relative group overflow-hidden">
+              <img src={preview} alt="Preview" className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+              <button
+                type="button"
+                onClick={() => removePhoto(idx)}
+                className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-xl"
+              >
+                <i className="fas fa-times text-[10px]"></i>
+              </button>
+            </div>
+          ))}
+
+          {photos.length < 5 && (
+            <button
+              type="button"
+              onClick={() => photoInputRef.current?.click()}
+              className="aspect-square bg-[#2c3440]/30 border-2 border-dashed border-[#2c3440] rounded-lg flex flex-col items-center justify-center gap-1 hover:border-[#40bcf4]/50 hover:bg-[#40bcf4]/5 transition-all group"
+            >
+              <i className="fas fa-plus text-[#567] group-hover:text-[#40bcf4]"></i>
+              <span className="text-[8px] font-black text-[#567] uppercase tracking-tighter group-hover:text-[#40bcf4]">Add Photo</span>
+            </button>
+          )}
+        </div>
+        <input
+          type="file"
+          ref={photoInputRef}
+          className="hidden"
+          accept="image/*"
+          multiple
+          onChange={handlePhotoSelect}
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -318,8 +462,8 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
                   }
                 }}
                 className={`px-3 py-1.5 rounded-sm text-xs font-bold uppercase transition-all ${companions.includes(comp)
-                    ? 'bg-[#00e054] text-[#14181c]'
-                    : 'bg-[#2c3440] text-[#9ab] hover:bg-[#3c4450]'
+                  ? 'bg-[#00e054] text-[#14181c]'
+                  : 'bg-[#2c3440] text-[#9ab] hover:bg-[#3c4450]'
                   }`}
               >
                 <i className={`fas ${comp === 'solo' ? 'fa-user' : comp === 'partner' ? 'fa-heart' : comp === 'family' ? 'fa-users' : comp === 'friends' ? 'fa-user-group' : 'fa-people-group'} mr-1.5`}></i>
@@ -331,7 +475,9 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd }) => {
       </div>
 
       <div className="flex items-center justify-end pt-6 border-t border-[#2c3440]">
-        <Button type="submit" variant="primary" className="px-8 py-3">SAVE LOG</Button>
+        <Button type="submit" variant="primary" className="px-8 py-3" isLoading={isUploading}>
+          {isUploading ? 'SAVING MEMORY...' : 'SAVE LOG'}
+        </Button>
       </div>
     </form>
   );

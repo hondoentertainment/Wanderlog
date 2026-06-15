@@ -2,10 +2,11 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-    { path: '/history', label: 'Home', icon: 'fa-home' },
-    { path: '/saved', label: 'Saved', icon: 'fa-bookmark' },
-    { path: '/compare', label: 'Compare', icon: 'fa-scale-balanced' },
-    { path: '/statscard', label: 'Stats', icon: 'fa-id-card' },
+    { id: 'history', label: 'Home', icon: 'fa-home' },
+    { id: 'discovery', label: 'Explore', icon: 'fa-compass' },
+    { id: 'jules', label: 'Jules', icon: 'fa-robot' },
+    { id: 'squad', label: 'Squad', icon: 'fa-users' },
+    { id: 'profile', label: 'Profile', icon: 'fa-user' },
 ];
 
 export const MobileNav: React.FC = () => {

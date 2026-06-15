@@ -1,0 +1,29 @@
+﻿components/DiscoveryIntelligence.tsx(47,32): error TS2554: Expected 4 arguments, but got 2.
+components/ErrorBoundary.tsx(15,14): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+components/ErrorBoundary.tsx(27,14): error TS2339: Property 'setState' does not exist on type 'ErrorBoundary'.
+components/ErrorBoundary.tsx(32,18): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+components/ErrorBoundary.tsx(58,42): error TS2339: Property 'state' does not exist on type 'ErrorBoundary'.
+components/ErrorBoundary.tsx(66,21): error TS2339: Property 'props' does not exist on type 'ErrorBoundary'.
+components/LocationForm.tsx(55,28): error TS2552: Cannot find name 'setEndDate'. Did you mean 'setDate'?
+components/LocationForm.tsx(56,31): error TS2304: Cannot find name 'setCompanions'.
+components/LocationForm.tsx(65,72): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(68,50): error TS18004: No value exists in scope for the shorthand property 'endDate'. Either declare one or provide an initializer.
+components/LocationForm.tsx(68,59): error TS18004: No value exists in scope for the shorthand property 'companions'. Either declare one or provide an initializer.
+components/LocationForm.tsx(71,50): error TS2304: Cannot find name 'endDate'.
+components/LocationForm.tsx(71,59): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(112,5): error TS2304: Cannot find name 'setIsScanning'.
+components/LocationForm.tsx(136,7): error TS2304: Cannot find name 'setIsScanning'.
+components/LocationForm.tsx(220,25): error TS2304: Cannot find name 'endDate'.
+components/LocationForm.tsx(221,21): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(221,45): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(232,7): error TS2304: Cannot find name 'setEndDate'.
+components/LocationForm.tsx(233,7): error TS2304: Cannot find name 'setCompanions'.
+components/LocationForm.tsx(258,22): error TS2304: Cannot find name 'isScanning'.
+components/LocationForm.tsx(436,34): error TS2304: Cannot find name 'endDate'.
+components/LocationForm.tsx(437,32): error TS2304: Cannot find name 'setEndDate'.
+components/LocationForm.tsx(453,23): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(454,21): error TS2304: Cannot find name 'setCompanions'.
+components/LocationForm.tsx(454,35): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(456,21): error TS2304: Cannot find name 'setCompanions'.
+components/LocationForm.tsx(456,39): error TS2304: Cannot find name 'companions'.
+components/LocationForm.tsx(459,97): error TS2304: Cannot find name 'companions'.

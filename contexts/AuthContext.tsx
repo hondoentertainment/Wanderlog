@@ -1,14 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  User,
-  getRedirectResult,
-  onAuthStateChanged,
-  signInWithPopup,
-  signInWithRedirect,
-  signOut,
-} from 'firebase/auth';
-import { auth, googleProvider } from '../services/firebaseConfig';
+import { User, signInWithPopup, signOut, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { auth, googleProvider, appleProvider } from '../services/firebaseConfig';
 import { useToast } from '../components/Toast';
+import { deleteAccountFully } from '../services/accountDeletionService';
 
 function prefersRedirectSignIn(): boolean {
   return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -18,7 +12,11 @@ interface AuthContextType {
     user: User | null;
     loading: boolean;
     signInWithGoogle: () => Promise<void>;
+    signInWithApple: () => Promise<void>;
+    signInWithEmail: (e: string, p: string) => Promise<void>;
+    registerWithEmail: (e: string, p: string) => Promise<void>;
     logout: () => Promise<void>;
+    deleteAccount: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,15 +34,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return () => unsubscribe();
     }, []);
 
-    useEffect(() => {
-        getRedirectResult(auth)
-            .then((result) => {
-                if (result?.user) {
-                    showToast('Welcome back to Travel Muse!', 'success');
-                }
-            })
-            .catch((err) => console.error('Redirect sign-in error', err));
-    }, [showToast]);
+    const signInWithApple = async () => {
+        try {
+            await signInWithPopup(auth, appleProvider);
+            showToast('Welcome back to Travel Muse!', 'success');
+        } catch (error: any) {
+            console.error('Error signing in with Apple:', error);
+            if (error.code === 'auth/popup-closed-by-user') {
+                showToast('Sign-in cancelled', 'info');
+            } else {
+                showToast(`Apple sign-in failed: ${error.message || 'Unknown error'}`, 'error');
+            }
+        }
+    };
 
     const signInWithGoogle = async () => {
         try {
@@ -54,9 +56,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             await signInWithPopup(auth, googleProvider);
             showToast('Welcome back to Travel Muse!', 'success');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error signing in:', error);
-            showToast('Error signing in with Google', 'error');
+            // Show more detailed error for debugging
+            if (error.code === 'auth/unauthorized-domain') {
+                showToast('Domain not authorized in Firebase Console', 'error');
+            } else if (error.code === 'auth/popup-closed-by-user') {
+                showToast('Sign-in cancelled', 'info');
+            } else {
+                showToast(`Login failed: ${error.message || 'Unknown error'}`, 'error');
+            }
         }
     };
 
@@ -70,8 +79,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const signInWithEmail = async (e: string, p: string) => {
+        try {
+            await signInWithEmailAndPassword(auth, e, p);
+            showToast('Welcome back!', 'success');
+        } catch (error: any) {
+            console.error('Error signing in with email:', error);
+            showToast(`Login failed: ${error.message || 'Unknown error'}`, 'error');
+            throw error; // Rethrow to let the UI component handle the loading state
+        }
+    };
+
+    const registerWithEmail = async (e: string, p: string) => {
+        try {
+            await createUserWithEmailAndPassword(auth, e, p);
+            showToast('Account created successfully!', 'success');
+        } catch (error: any) {
+            console.error('Error registering with email:', error);
+            showToast(`Registration failed: ${error.message || 'Unknown error'}`, 'error');
+            throw error;
+        }
+    };
+
+    const deleteAccount = async () => {
+        try {
+            await deleteAccountFully();
+            showToast('Your account has been deleted.', 'info');
+        } catch (error: any) {
+            console.error('Error deleting account:', error);
+            const msg =
+                typeof error?.message === 'string' && error.message === 'Account deletion cancelled.'
+                    ? 'Account deletion cancelled.'
+                    : error?.message || 'Could not delete account. Try signing in again, then retry.';
+            showToast(msg, 'error');
+            throw error;
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, loading, signInWithGoogle, logout }}>
+        <AuthContext.Provider value={{ user, loading, signInWithGoogle, signInWithApple, signInWithEmail, registerWithEmail, logout, deleteAccount }}>
             {children}
         </AuthContext.Provider>
     );

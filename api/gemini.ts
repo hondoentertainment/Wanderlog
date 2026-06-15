@@ -1,71 +1,150 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { applyCors } from './lib/cors';
-import { verifyIdToken } from './lib/firebaseAdmin';
-import { checkGeminiRateLimit } from './lib/rateLimit';
-import { type GeminiAction, runGeminiAction } from './lib/geminiServer';
-
 export const config = {
-  maxDuration: 60,
+  runtime: 'edge',
 };
 
-const VALID_ACTIONS = new Set<GeminiAction>([
-  'getAIRecommendations',
-  'getSquadActivitySuggestions',
-  'getTravelMuseInsights',
-  'analyzeLogImage',
-  'performSemanticSearch',
-  'generateTravelDNA',
-  'getLocationDetails',
-  'generateItinerary',
-  'geocodeLocation',
-]);
+import { clientRateLimitKey } from './lib/rateLimit';
+import { checkRateLimitAsync } from './lib/rateLimitDistributed';
 
-function getBearerToken(req: VercelRequest): string | null {
-  const h = req.headers.authorization;
-  if (!h || typeof h !== 'string') return null;
-  const m = h.match(/^Bearer\s+(.+)$/i);
-  return m ? m[1].trim() : null;
+interface GeminiRequestBody {
+  message?: string;
+  systemInstruction?: string;
+  responseMimeType?: string;
+  responseSchema?: object;
+  temperature?: number;
+  maxOutputTokens?: number;
+  imageBase64?: string;
+  imageMimeType?: string;
+  tools?: unknown[];
+  toolConfig?: unknown;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  applyCors(req, res);
+async function verifyFirebaseIdToken(idToken: string): Promise<string | null> {
+  const apiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_WEB_API_KEY;
+  if (!apiKey) return null;
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idToken }),
+    },
+  );
+
+  if (!res.ok) return null;
+  const data = (await res.json()) as { users?: { localId?: string }[] };
+  return data.users?.[0]?.localId ?? null;
+}
+
+function rateLimitKey(request: Request, uid: string | null): string {
+  if (uid) return `uid:${uid}`;
+  return clientRateLimitKey(request);
+}
+
+export default async function handler(request: Request) {
+  if (request.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed', code: 'METHOD_NOT_ALLOWED' });
+  const authHeader = request.headers.get('authorization') || '';
+  const idToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  const uid = idToken ? await verifyFirebaseIdToken(idToken) : null;
+
+  const requireAuth = process.env.GEMINI_REQUIRE_AUTH === 'true';
+  if (requireAuth && !uid) {
+    return new Response(JSON.stringify({ error: 'Sign in required for AI requests.' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 
-  const token = getBearerToken(req);
-  if (!token) {
-    return res.status(401).json({ error: 'Missing or invalid Authorization header', code: 'UNAUTHENTICATED' });
+  const maxRequests = uid ? 40 : 12;
+  const rate = await checkRateLimitAsync(rateLimitKey(request, uid), maxRequests, 60_000);
+  if (!rate.allowed) {
+    return new Response(
+      JSON.stringify({ error: `Rate limit exceeded. Retry in ${rate.retryAfterSec}s.` }),
+      { status: 429, headers: { 'Content-Type': 'application/json' } },
+    );
   }
 
-  let uid: string;
   try {
-    uid = await verifyIdToken(token);
-  } catch {
-    return res.status(401).json({ error: 'Invalid or expired token', code: 'UNAUTHENTICATED' });
-  }
+    const body = (await request.json()) as GeminiRequestBody;
+    const {
+      message = '',
+      systemInstruction,
+      responseMimeType,
+      responseSchema,
+      temperature,
+      maxOutputTokens,
+      imageBase64,
+      imageMimeType = 'image/jpeg',
+      tools,
+      toolConfig,
+    } = body;
 
-  if (!(await checkGeminiRateLimit(uid))) {
-    return res.status(429).json({ error: 'Too many AI requests. Try again in a minute.', code: 'RATE_LIMITED' });
-  }
+    if (!message.trim() && !imageBase64) {
+      return new Response(JSON.stringify({ error: 'message or imageBase64 required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  const action = body?.action as string | undefined;
-  if (!action || !VALID_ACTIONS.has(action as GeminiAction)) {
-    return res.status(400).json({ error: 'Missing or invalid action', code: 'BAD_REQUEST' });
-  }
+    const API_KEY = process.env.GEMINI_API_KEY;
+    if (!API_KEY) {
+      throw new Error('Missing GEMINI_API_KEY in server environment.');
+    }
 
-  try {
-    const result = await runGeminiAction(action as GeminiAction, body.payload);
-    return res.status(200).json({ result });
-  } catch (err) {
-    console.error('[api/gemini]', err);
-    const message = err instanceof Error ? err.message : 'Internal Server Error';
-    return res.status(500).json({ error: message, code: 'GEMINI_ERROR' });
+    const generationConfig: Record<string, unknown> = {
+      temperature: temperature ?? 0.7,
+      maxOutputTokens: maxOutputTokens ?? 2048,
+    };
+    if (responseMimeType) generationConfig.responseMimeType = responseMimeType;
+    if (responseSchema) generationConfig.responseSchema = responseSchema;
+
+    const parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] = [];
+    if (imageBase64) {
+      parts.push({ inlineData: { mimeType: imageMimeType, data: imageBase64 } });
+    }
+    if (message.trim()) {
+      parts.push({ text: message });
+    }
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts }],
+          systemInstruction: systemInstruction
+            ? { parts: [{ text: systemInstruction }] }
+            : undefined,
+          generationConfig,
+          ...(tools?.length ? { tools, toolConfig } : {}),
+        }),
+      },
+    );
+
+    if (!geminiRes.ok) {
+      const errorText = await geminiRes.text();
+      throw new Error(`Gemini API Error: ${errorText}`);
+    }
+
+    const data = await geminiRes.json();
+    const replyText =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "I'm sorry, I couldn't generate a response.";
+
+    return new Response(JSON.stringify({ response: replyText }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Edge Function Error:', error);
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 }
