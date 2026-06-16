@@ -124,20 +124,17 @@ export const LocationForm: React.FC<LocationFormProps> = ({ onAdd, prefilledData
         }
         if (extractedData.dateVisited) setDate(extractedData.dateVisited);
         if (extractedData.likes) setLikes(prev => [...new Set([...prev, ...(extractedData.likes || [])])]);
-      };
-      reader.readAsDataURL(file);
 
-      // Also add to photos if not already there
-      if (!photos.some(p => p.name === file.name)) {
-        setPhotos(prev => [...prev, file]);
-        setPhotoPreviews(prev => [...prev, URL.createObjectURL(file)]);
+        if (!photos.some(p => p.name === file.name)) {
+          setPhotos(prev => [...prev, file]);
+          setPhotoPreviews(prev => [...prev, URL.createObjectURL(file)]);
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Scan failed. Try again.', 'error');
+      } finally {
+        setIsScanning(false);
       }
-    } catch (err) {
-      console.error(err);
-      showToast("Scan failed. Try again.", "error");
-    } finally {
-      setIsScanning(false);
-      showToast('Could not read that image.', 'error');
     };
     reader.readAsDataURL(file);
   };
