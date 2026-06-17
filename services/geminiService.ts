@@ -12,6 +12,11 @@ import type {
 } from '../types';
 export { exportItineraryToICS } from './itineraryIcs';
 
+export function getGeminiErrorMessage(err: unknown): string {
+  if (err instanceof Error && err.message) return err.message;
+  return 'Something went wrong with AI. Try again.';
+}
+
 import { Type } from "@google/genai";
 import { geminiGenerate, geminiGenerateJson, geminiGenerateJsonWithImage } from "./geminiRunner";
 import { TravelLocation, AIRecommendation, UserProfile, GroundingLink, LocationType, ItineraryDay, TravelDNA, VibeType, TravelMuseInsight, SquadTrip } from "../types";
