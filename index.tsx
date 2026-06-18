@@ -7,7 +7,6 @@ import App from './App';
 import { AuthProvider } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
-import { ErrorBoundary } from './components/ErrorBoundary';
 import { installGlobalErrorHandlers } from './utils/reportError';
 import { initPosthog } from './utils/posthog';
 
