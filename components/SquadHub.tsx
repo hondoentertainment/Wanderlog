@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SquadTrip, SquadMember, ChatMessage } from '../types';
 import { Button } from './Button';
-import { getSquadActivitySuggestions } from '../services/geminiService';
+import { getSquadActivitySuggestions, getGeminiErrorMessage } from '../services/geminiService';
+import { useToast } from './Toast';
 import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { SquadChallenges } from './SquadChallenges';
@@ -30,6 +31,7 @@ export const SquadHub: React.FC<SquadHubProps> = ({
   onUpdate,
   onDelete
 }) => {
+  const { showToast } = useToast();
   const [isCreating, setIsCreating] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');

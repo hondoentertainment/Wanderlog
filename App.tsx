@@ -343,6 +343,8 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 const App: React.FC = () => {
+  const { showToast } = useToast();
+  const { user, loading: authLoading } = useAuth();
   const [publicTripViewId, setPublicTripViewId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -383,13 +385,9 @@ const App: React.FC = () => {
   const [loadingItinerary, setLoadingItinerary] = useState<string | null>(null);
   const [loadingDNA, setLoadingDNA] = useState(false);
 
-function AddRoute() {
-  const navigate = useNavigate();
-  const { addLocation } = useTravelData();
-  return (
-    <LazyLocationForm onAdd={(loc) => { addLocation(loc); navigate('/history'); }} />
-  );
-}
+  const [semanticResultIds, setSemanticResultIds] = useState<string[]>([]);
+  const [semanticSearchQuery, setSemanticSearchQuery] = useState('');
+  const [isSearchingAI, setIsSearchingAI] = useState(false);
 
   const [museInsights, setMuseInsights] = useState<TravelMuseInsight[]>([]);
   const [isLoadingMuse, setIsLoadingMuse] = useState(false);
@@ -401,19 +399,6 @@ function AddRoute() {
 
   /** Must stay with top-level hooks (before conditional returns below). */
   const [prefilledLocation, setPrefilledLocation] = useState<Partial<TravelLocation> | null>(null);
-
-function SquadRoute() {
-  const { squadTrips, createSquad, joinSquad, updateSquad, deleteSquad } = useTravelData();
-  return (
-    <LazySquadHub
-      trips={squadTrips}
-      onCreate={createSquad}
-      onJoin={joinSquad}
-      onUpdate={updateSquad}
-      onDelete={deleteSquad}
-    />
-  );
-}
 
   useEffect(() => {
     const handleOnline = () => {

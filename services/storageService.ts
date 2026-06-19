@@ -1,9 +1,8 @@
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, setDoc, collection } from 'firebase/firestore';
 import { db, storage } from './firebaseConfig';
 import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
 import { TravelLocation, UserProfile, StorageData, SavedRecommendation, SquadTrip } from '../types';
 import { STORAGE_KEY } from '../constants';
-import { DEFAULT_PROFILE, normalizeParsedStorage, type StorageDataShape } from './storageNormalize';
 
 export const DEFAULT_PROFILE: UserProfile = {
   name: 'Traveler',
@@ -12,6 +11,18 @@ export const DEFAULT_PROFILE: UserProfile = {
   bucketList: [],
   customTravelStyles: []
 };
+
+/** Firestore documents have a hard 1 MiB limit; warn well before that. */
+const META_DOC_WARNING_BYTES = 900_000;
+
+/** Rough byte size of a metadata payload, used only to emit a size warning. */
+function estimateMetaPayloadBytes(meta: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(meta)).length;
+  } catch {
+    return 0;
+  }
+}
 
 import { offlineQueue } from './offlineQueue';
 import { syncUserDirectory } from './userDirectory';
@@ -61,16 +72,18 @@ export const loadAppData = async (userId?: string): Promise<StorageData> => {
     const locCol = collection(db, 'users', userId, 'locations');
     const [userSnap, locSnap] = await Promise.all([getDoc(userRef), getDocs(locCol)]);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data() as StorageData;
+    const subLocations = locSnap.docs.map(d => d.data() as TravelLocation);
+
+    if (userSnap.exists()) {
+      const data = userSnap.data() as StorageData;
       return {
-        locations: data.locations || [],
+        locations: subLocations.length > 0 ? subLocations : (data.locations || []),
         profile: data.profile || DEFAULT_PROFILE,
         savedRecommendations: data.savedRecommendations || [],
         squadTrips: data.squadTrips || []
       };
     }
-    return { locations: [], profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };
+    return { locations: subLocations, profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };
   } catch (error) {
     console.error("Error loading from cloud:", error);
     return { locations: [], profile: DEFAULT_PROFILE, savedRecommendations: [], squadTrips: [] };

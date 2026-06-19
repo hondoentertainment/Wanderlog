@@ -13,20 +13,6 @@ import { initPosthog } from './utils/posthog';
 void initPosthog();
 installGlobalErrorHandlers();
 
-const release =
-  import.meta.env.VITE_APP_RELEASE && import.meta.env.VITE_APP_RELEASE.length > 0
-    ? `wanderlog@${import.meta.env.VITE_APP_RELEASE}`
-    : undefined;
-
-if (import.meta.env.PROD && import.meta.env.VITE_SENTRY_DSN) {
-  Sentry.init({
-    dsn: import.meta.env.VITE_SENTRY_DSN,
-    tracesSampleRate: 0.1,
-    release,
-    environment: import.meta.env.MODE === 'production' ? 'production' : import.meta.env.MODE,
-  });
-}
-
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error('Could not find root element to mount to');

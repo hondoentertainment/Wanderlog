@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from './Button';
 
 export const Login: React.FC = () => {
     const { signInWithGoogle, signInWithApple, signInWithEmail, registerWithEmail, loading } = useAuth();
