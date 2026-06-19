@@ -13,6 +13,9 @@ const firebaseConfigFromEnv: FirebaseOptions = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
+/** True when no real Firebase project is wired and we fall back to a placeholder (dev/test/CI). Backing network calls will not succeed, so callers should short-circuit reads. */
+export let usingPlaceholderFirebase = false;
+
 function resolveFirebaseConfig(): FirebaseOptions {
     const configured =
         firebaseConfigFromEnv.apiKey &&
@@ -31,6 +34,7 @@ function resolveFirebaseConfig(): FirebaseOptions {
     if (allowOfflinePlaceholder) {
         // Valid shape for the client SDK so the app renders; backing calls fail gracefully until `.env` is set.
         console.warn('[firebase] VITE_FIREBASE_* not fully set — using placeholder for dev/test.');
+        usingPlaceholderFirebase = true;
         return {
             apiKey: 'local-dev-placeholder-not-a-secret',
             authDomain: 'placeholder.firebaseapp.com',

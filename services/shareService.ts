@@ -3,7 +3,7 @@ import {
     collection, addDoc, getDocs, query, where,
     increment, onSnapshot, serverTimestamp
 } from 'firebase/firestore';
-import { db } from './firebaseConfig';
+import { db, usingPlaceholderFirebase } from './firebaseConfig';
 import { ShareScope, SharedTrip, SharedTripComment, TravelLocation } from '../types';
 
 const SHARED_TRIPS_COLLECTION = 'sharedTrips';
@@ -48,6 +48,9 @@ export const shareService = {
 
     // Get shared trip by ID
     async getSharedTrip(tripId: string): Promise<SharedTrip | null> {
+        // Without a real Firebase project (dev/test/CI), Firestore reads hang on a
+        // non-existent backend instead of failing fast; short-circuit to "not found".
+        if (usingPlaceholderFirebase) return null;
         const docSnap = await getDoc(doc(db, SHARED_TRIPS_COLLECTION, tripId));
         if (!docSnap.exists()) return null;
         return { id: docSnap.id, ...docSnap.data() } as SharedTrip;
